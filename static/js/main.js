@@ -89,17 +89,89 @@ function addToHistory(prompt) {
  */
 function updateHistoryDisplay() {
     const historyDiv = document.getElementById('prompt-history');
-    historyDiv.innerHTML = promptHistory.map((prompt, index) => `
-        <button type="button" class="text-sm p-2 w-full text-left hover:bg-blue-100 focus:bg-gray-100 rounded mb-1 ${index % 2 === 1 ? 'bg-gray-100' : ''}" 
-             onclick="useHistoryPrompt(event, '${prompt.replace(/'/g, "\\'")}')">
-            ${prompt}
-        </button>
-    `).join('');
+    historyDiv.innerHTML = promptHistory.map((prompt, index) => {
+        // Properly escape the prompt for the onclick attribute
+        const escapedPrompt = prompt
+            .replace(/'/g, "\\'")            // Escape single quotes
+            .replace(/"/g, '\\"')            // Escape double quotes
+            .replace(/\n/g, '\\n')           // Escape newlines
+            .replace(/\r/g, '\\r')           // Escape carriage returns
+            .replace(/✨/g, '\\u2728');      // Escape sparkle emoji
+
+        return `
+            <button type="button" class="text-sm p-2 w-full text-left hover:bg-blue-100 focus:bg-gray-100 rounded mb-1 ${index % 2 === 1 ? 'bg-gray-100' : ''}" 
+                onclick="useHistoryPrompt(event, '${escapedPrompt}')">
+                ${prompt}
+            </button>
+        `;
+    }).join('');
 }
 
+/**
+ * Updates the prompt input with a historical prompt and shows notification
+ * @param {Event} event - The click event
+ * @param {string} prompt - The historical prompt to use
+ */
 function useHistoryPrompt(event, prompt) {
     event.preventDefault();
     document.getElementById('prompt').value = prompt;
+    
+    // Hide the notification first if it's visible
+    const notification = document.getElementById('prompt-notification');
+    if (!notification.classList.contains('hidden')) {
+        hideNotification();
+        // Small delay to ensure the hide animation completes
+        setTimeout(() => {
+            showNotification();
+            // Auto-hide after 5 seconds
+            setTimeout(() => hideNotification(), 10000);
+        }, 300);
+    } else {
+        showNotification();
+        // Auto-hide after 5 seconds
+        setTimeout(() => hideNotification(), 10000);
+    }
+}
+
+/**
+ * Shows the notification with animation
+ */
+function showNotification() {
+    const notification = document.getElementById('prompt-notification');
+    notification.classList.remove('hidden');
+    // Wait a tiny bit for the display:block to take effect
+    setTimeout(() => {
+        notification.classList.remove('translate-y-full');
+    }, 10);
+
+    // Auto-hide after 5 seconds
+    setTimeout(() => {
+        hideNotification();
+    }, 10000);
+}
+
+/**
+ * Hides the notification with animation
+ */
+function hideNotification() {
+    const notification = document.getElementById('prompt-notification');
+    notification.classList.add('translate-y-full');
+    // Wait for animation to finish before hiding
+    setTimeout(() => {
+        notification.classList.add('hidden');
+    }, 300);
+}
+
+/**
+ * Scrolls smoothly to the prompt input field
+ */
+function scrollToPrompt() {
+    const promptElement = document.getElementById('prompt');
+    promptElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    promptElement.focus();
+    
+    // Hide the notification
+    hideNotification();
 }
 
 // Image generation and prompt enhancement
@@ -315,12 +387,18 @@ function handleEscapeKey(event) {
  * @returns {string} The sanitized text
  */
 function sanitizeFilename(text) {
-    // Remove invalid filename characters and trim to reasonable length
-    return text
+    // Clean up special prefixes first
+    const cleanText = text
+        .replace(/^✨\s*/, '')           // Remove sparkle prefix
+        .replace(/^Sure!\s*Here['s:]?\s*/i, '')  // Remove "Sure! Here" prefix
+        .replace(/^Here['s:]?\s*/i, ''); // Remove "Here's" prefix
+
+    // Then sanitize for filename
+    return cleanText
         .replace(/[^a-z0-9-_\s]/gi, '') // Remove invalid chars
-        .replace(/\s+/g, '-') // Replace spaces with hyphens
-        .substring(0, 50) // Limit length
-        .trim(); // Remove trailing spaces
+        .replace(/\s+/g, '-')           // Replace spaces with hyphens
+        .substring(0, 50)               // Limit length
+        .trim();                        // Remove trailing spaces
 }
 
 /**
