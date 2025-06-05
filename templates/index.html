@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ask AI Image Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gray-100 min-h-screen">
+    <!-- Add skip to main content link -->
+    <a href="#main-content" 
+       class="absolute -top-10 left-0 bg-blue-600 text-white p-2 z-50 transition-all duration-300 focus:top-0">
+        Skip to main content
+    </a>
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-4xl font-bold text-center mb-8">Ask AI Image Generator</h1>
+        <main id="main-content" class="max-w-2xl mx-auto relative">
+            <div id="loading" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+                <div class="bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-4 flex items-center gap-3 border border-gray-200">
+                    <svg class="animate-spin h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <p class="text-gray-600 font-medium">Generating image...</p>
+                </div>
+            </div>
+
+            <form class="bg-white rounded-lg shadow-lg p-6" aria-label="Image generation form">
+                <div class="mb-4">
+                    <label for="prompt" class="block text-gray-700 text-sm font-bold mb-2">Enter your prompt:</label>
+                    <textarea id="prompt"
+                        class="w-full px-3 py-2 border rounded-lg mb-2 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:outline-none disabled:opacity-50 disabled:bg-gray-50"
+                        rows="5"
+                        ></textarea>
+                    <div class="flex space-x-2">
+                        <button type="button" id="generateButton"
+                            class="flex-1 bg-blue-700 text-white py-2 px-4 rounded-lg hover:bg-blue-800 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-blue-700 disabled:focus:ring-0"
+                            aria-label="Generate image from prompt"
+                            aria-disabled="false"
+                            onclick="generateImage();">
+                            Generate Image
+                        </button>
+                        <button type="button" id="enhanceButton"
+                            class="px-4 py-2 bg-green-800 text-white rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                            aria-label="Enhance current prompt"
+                            aria-disabled="false"
+                            onclick="enhancePrompt();">
+                            Enhance
+                        </button>
+                    </div>
+                </div>
+
+
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label for="model" class="block text-gray-700 text-sm font-bold mb-2">Model:</label>
+                        <select id="model"
+                        onchange="saveFormSettings()"
+                            class="w-full px-3 py-2 border rounded-lg disabled:opacity-50"
+                            aria-disabled="false">
+                            <option value="SDXL">SDXL (Best Quality)</option>
+                            <option value="sd15">Stable Diffusion 1.5</option>
+                            <option value="anything-v5">Anything V5 (Anime)</option>
+                            <option value="dreamshaper-v7">Dreamshaper V7</option>
+                            <option value="openjourney-v4">Openjourney V4 (Midjourney Style)</option>
+                            <option value="portrait-v1">Portrait V1 (People)</option>
+                            <option value="realistic-v3">Realistic V3</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="style" class="block text-gray-700 text-sm font-bold mb-2">Style:</label>
+                        <select id="style"
+                        onchange="saveFormSettings()"
+                            class="w-full px-3 py-2 border rounded-lg disabled:opacity-50"
+                            aria-disabled="false">
+                            <option value="photographic">Photographic</option>
+                            <option value="digital art">Digital Art</option>
+                            <option value="cinematic">Cinematic</option>
+                            <option value="anime">Anime</option>
+                            <option value="comic book">Comic Book</option>
+                            <option value="fantasy art">Fantasy Art</option>
+                            <option value="impressionist">Impressionist</option>
+                            <option value="oil painting">Oil Painting</option>
+                            <option value="watercolor">Watercolor</option>
+                            <option value="3D render">3D Render</option>
+                            <option value="concept art">Concept Art</option>
+                            <option value="minimalist">Minimalist</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label for="size" class="block text-gray-700 text-sm font-bold mb-2">Image Size:</label>
+                        <select id="size"
+                        onchange="saveFormSettings()"
+                            class="w-full px-3 py-2 border rounded-lg disabled:opacity-50"
+                            aria-disabled="false">
+                            <option value="512x512">512x512 (Fast)</option>
+                            <option value="768x768">768x768 (Balanced)</option>
+                            <option value="1024x1024" selected>1024x1024 (HD)</option>
+                            <option value="1024x1536">1024x1536 (Portrait)</option>
+                            <option value="1536x1024">1536x1024 (Landscape)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="quality" class="block text-gray-700 text-sm font-bold mb-2">Quality Level:</label>
+                        <select id="quality"
+                        onchange="saveFormSettings()"
+                            class="w-full px-3 py-2 border rounded-lg disabled:opacity-50"
+                            aria-disabled="false">
+                            <option value="fast">Fast (20 steps)</option>
+                            <option value="balanced" selected>Balanced (30 steps)</option>
+                            <option value="detailed">Detailed (50 steps)</option>
+                            <option value="maximum">Maximum (75 steps)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <label for="guidance" class="block text-gray-700 text-sm font-bold mb-2">
+                        Creativity Level: <span id="guidance-value">7.0</span>
+                    </label>
+                    <input type="range" id="guidance" min="1" max="20" step="0.5" value="7.0" 
+                        class="w-full disabled:opacity-50"
+                        oninput="document.getElementById('guidance-value').textContent = this.value" 
+                        tabindex="0"
+                        aria-disabled="false"
+                        onchange="saveFormSettings()"
+                        >
+                </div>
+
+                <div id="result" class="mt-6 hidden" role="region" aria-live="polite">
+                    <img id="generated-image" class="w-full rounded-lg shadow-lg" src="" alt="">
+                </div>
+
+                <div id="error" class="hidden mt-4 text-red-500 text-center"></div>
+
+                <!-- Prompt History Accordion -->
+                <div class="mt-8 border-t pt-4">
+                    <button type="button" onclick="toggleHistory()"
+                        class="w-full flex justify-between items-center text-gray-700 font-bold hover:text-gray-900"
+                        aria-expanded="false" aria-controls="prompt-history">
+                        <span>Recent Prompts</span>
+                        <svg id="history-chevron" class="w-5 h-5 transform transition-transform duration-200"
+                            fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </button>
+                    <div id="prompt-history" class="hidden mt-4 max-h-148 overflow-y-auto transition-all duration-200"
+                        role="region" aria-label="Recent prompts history">
+                        <!-- Prompt history items will be inserted here -->
+                    </div>
+                </div>
+            </form>
+        </main>
+    </div>
+
+    <footer class="mt-8 py-4 border-t border-gray-200">
+
+        <div class="container mx-auto px-4 text-center text-gray-600 text-sm">
+            <p class="py-2">Created by <a href="https://www.twistermc.com" target="_blank" rel="noopener" class="text-blue-600 hover:text-blue-800 underline">TwisterMC</a> at <a href="https://www.nerdery.com" target="_blank" rel="noopener" class="text-blue-600 hover:text-blue-800 underline">Nerdery</a> | Source code at <a href="https://github.com/TwisterMc/ask_ai" target="_blank" rel="noopener" class="text-blue-600 hover:text-blue-800 underline">GitHub</a></p>
+        </div>
+                <div class="container mx-auto px-4 text-center text-gray-600 text-sm">
+            <p>Powered by <a href="https://pollinations.ai" target="_blank" rel="noopener" class="text-blue-600 hover:text-blue-800 underline">Pollinations.AI</a> for image generation and prompt enhancement</p>
+        </div>
+    </footer>
+
+    <script src="/static/js/main.js"></script>
+</body>
+
+</html>
+
+
+        
