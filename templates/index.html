@@ -131,13 +131,23 @@
                 </div>
 
                 <div id="result" class="mt-6 hidden" role="region" aria-live="polite">
-                    <img id="generated-image" 
-                        class="w-full rounded-lg shadow-lg cursor-pointer hover:opacity-90 transition-opacity" 
-                        src="" alt=""
-                        onclick="openImageModal(this.src, this.alt)"
-                        role="button"
-                        tabindex="0"
-                        onkeypress="(event) => { if (event.key === 'Enter') openImageModal(this.src, this.alt) }">
+                    <div class="relative">
+                        <img id="generated-image" 
+                            class="w-full rounded-lg shadow-lg cursor-pointer hover:opacity-90 transition-opacity" 
+                            src="" alt=""
+                            onclick="event.preventDefault(); openImageModal(this.src, this.alt)"
+                            role="button"
+                            tabindex="0"
+                            onkeypress="event.preventDefault(); if (event.key === 'Enter') openImageModal(this.src, this.alt)"/>
+                        <button 
+                            onclick="event.preventDefault(); const img = document.getElementById('generated-image'); openImageModal(img.src, img.alt)"
+                            class="absolute top-4 right-4 bg-black/50 hover:bg-black/70 text-white p-2 rounded-lg transition-colors"
+                            aria-label="View image in full size">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m4-3H6" />
+                            </svg>
+                        </button>
+                    </div>
                 </div>
 
                 <div id="error" class="hidden mt-4 text-red-500 text-center"></div>
@@ -180,7 +190,7 @@
                     <h2 id="modalTitle" class="text-xl font-bold">Full Size Image</h2>
                     <button 
                         onclick="closeImageModal()" 
-                        class="text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg p-1"
+                        class="text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-lg p-1 transition-colors"
                         aria-label="Close modal">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -191,7 +201,7 @@
                 <div class="mt-4 text-center">
                     <button 
                         onclick="downloadImage()" 
-                        class="bg-blue-700 text-white py-2 px-4 rounded-lg hover:bg-blue-800 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+                        class="bg-blue-700 text-white py-2 px-4 rounded-lg hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
                         aria-label="Download image">
                         Download Image
                     </button>

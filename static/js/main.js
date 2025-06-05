@@ -4,6 +4,12 @@ let promptHistory = JSON.parse(localStorage.getItem('promptHistory') || '[]');
 // Track current image prompt for downloads
 let currentImagePrompt = '';
 
+// Track modal focus management
+let previousActiveElement = null;
+let modalFocusableElements = [];
+let firstFocusableElement = null;
+let lastFocusableElement = null;
+
 // Form settings management
 
 /**
@@ -270,6 +276,9 @@ function openImageModal(imageUrl, altText) {
 
     // Handle Escape key to close modal
     document.addEventListener('keydown', handleEscapeKey);
+
+    // Set up focus trap
+    focusTrapOnModal(modal);
 }
 
 /**
@@ -279,7 +288,15 @@ function closeImageModal() {
     const modal = document.getElementById('imageModal');
     modal.classList.add('hidden');
     document.body.classList.remove('overflow-hidden');
+    
+    // Remove event listeners
     document.removeEventListener('keydown', handleEscapeKey);
+    modal.removeEventListener('keydown', trapFocus);
+    
+    // Restore focus to the previous element
+    if (previousActiveElement) {
+        previousActiveElement.focus();
+    }
 }
 
 /**
@@ -335,5 +352,51 @@ async function downloadImage() {
         const errorDiv = document.getElementById('error');
         errorDiv.textContent = 'Error downloading image';
         errorDiv.classList.remove('hidden');
+    }
+}
+
+/**
+ * Sets up focus trap within the modal
+ * @param {HTMLElement} modal - The modal element
+ */
+function focusTrapOnModal(modal) {
+    // Get all focusable elements within the modal
+    modalFocusableElements = Array.from(modal.querySelectorAll(`
+        a[href], area[href], input:not([disabled]), select:not([disabled]), 
+        textarea:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])
+    `));
+
+    if (modalFocusableElements.length === 0) return;
+
+    firstFocusableElement = modalFocusableElements[0];
+    lastFocusableElement = modalFocusableElements[modalFocusableElements.length - 1];
+
+    // Remember the currently focused element
+    previousActiveElement = document.activeElement;
+
+    // Focus the first element in the modal
+    firstFocusableElement.focus();
+
+    // Add event listener to trap focus within the modal
+    modal.addEventListener('keydown', trapFocus);
+}
+
+/**
+ * Traps the focus within the modal
+ * @param {KeyboardEvent} event - The keyboard event
+ */
+function trapFocus(event) {
+    if (event.key !== 'Tab') return;
+
+    if (event.shiftKey) { // Shift + Tab
+        if (document.activeElement === firstFocusableElement) {
+            event.preventDefault();
+            lastFocusableElement.focus();
+        }
+    } else { // Tab
+        if (document.activeElement === lastFocusableElement) {
+            event.preventDefault();
+            firstFocusableElement.focus();
+        }
     }
 }
