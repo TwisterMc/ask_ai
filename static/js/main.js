@@ -1,6 +1,9 @@
 // Prompt history management
 let promptHistory = JSON.parse(localStorage.getItem('promptHistory') || '[]');
 
+// Track current image prompt for downloads
+let currentImagePrompt = '';
+
 // Form settings management
 
 /**
@@ -166,6 +169,7 @@ async function generateImage() {
         if (data.success) {
             img.src = data.url;
             img.alt = `AI generated image based on prompt: ${prompt}`;
+            currentImagePrompt = prompt; // Store the prompt for download
             result.classList.remove('hidden');
             // Wait for the image to load before scrolling
             img.onload = () => {
@@ -239,5 +243,97 @@ async function enhancePrompt() {
         document.body.classList.remove('overflow-hidden');
         loadingText.textContent = originalLoadingText;
         setFormControlsDisabled(false);
+    }
+}
+
+/**
+ * Opens the image modal with the full-size image
+ * @param {string} imageUrl - URL of the image to display
+ * @param {string} altText - Alt text for the image
+ */
+function openImageModal(imageUrl, altText) {
+    const modal = document.getElementById('imageModal');
+    const modalImage = document.getElementById('modalImage');
+    
+    modalImage.src = imageUrl;
+    modalImage.alt = altText;
+    
+    modal.classList.remove('hidden');
+    document.body.classList.add('overflow-hidden');
+
+    // Handle clicking outside the modal to close it
+    modal.addEventListener('click', (event) => {
+        if (event.target === modal) {
+            closeImageModal();
+        }
+    });
+
+    // Handle Escape key to close modal
+    document.addEventListener('keydown', handleEscapeKey);
+}
+
+/**
+ * Closes the image modal
+ */
+function closeImageModal() {
+    const modal = document.getElementById('imageModal');
+    modal.classList.add('hidden');
+    document.body.classList.remove('overflow-hidden');
+    document.removeEventListener('keydown', handleEscapeKey);
+}
+
+/**
+ * Handles Escape key press to close modal
+ * @param {KeyboardEvent} event - The keyboard event
+ */
+function handleEscapeKey(event) {
+    if (event.key === 'Escape') {
+        closeImageModal();
+    }
+}
+
+/**
+ * Sanitizes a string for use in a filename
+ * @param {string} text - The text to sanitize
+ * @returns {string} The sanitized text
+ */
+function sanitizeFilename(text) {
+    // Remove invalid filename characters and trim to reasonable length
+    return text
+        .replace(/[^a-z0-9-_\s]/gi, '') // Remove invalid chars
+        .replace(/\s+/g, '-') // Replace spaces with hyphens
+        .substring(0, 50) // Limit length
+        .trim(); // Remove trailing spaces
+}
+
+/**
+ * Downloads the currently displayed modal image
+ */
+async function downloadImage() {
+    const modalImage = document.getElementById('modalImage');
+    const imageUrl = modalImage.src;
+    // Use stored prompt instead of trying to extract from alt text
+    const sanitizedPrompt = sanitizeFilename(currentImagePrompt);
+    const timestamp = new Date().toISOString().slice(0,19).replace(/[:T]/g, '-');
+    const filename = sanitizedPrompt 
+        ? `ai-image-${sanitizedPrompt}-${timestamp}.png` 
+        : `ai-generated-image-${timestamp}.png`;
+    
+    try {
+        const response = await fetch(imageUrl);
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+    } catch (error) {
+        console.error('Error downloading image:', error);
+        const errorDiv = document.getElementById('error');
+        errorDiv.textContent = 'Error downloading image';
+        errorDiv.classList.remove('hidden');
     }
 }

@@ -131,7 +131,13 @@
                 </div>
 
                 <div id="result" class="mt-6 hidden" role="region" aria-live="polite">
-                    <img id="generated-image" class="w-full rounded-lg shadow-lg" src="" alt="">
+                    <img id="generated-image" 
+                        class="w-full rounded-lg shadow-lg cursor-pointer hover:opacity-90 transition-opacity" 
+                        src="" alt=""
+                        onclick="openImageModal(this.src, this.alt)"
+                        role="button"
+                        tabindex="0"
+                        onkeypress="(event) => { if (event.key === 'Enter') openImageModal(this.src, this.alt) }">
                 </div>
 
                 <div id="error" class="hidden mt-4 text-red-500 text-center"></div>
@@ -166,10 +172,37 @@
         </div>
     </footer>
 
+    <!-- Image Modal -->
+    <div id="imageModal" class="hidden fixed inset-0 z-50 overflow-auto bg-black/80 p-4 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <div class="relative max-w-[90vw] max-h-[90vh]">
+            <div class="bg-white p-4 rounded-lg shadow-lg">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 id="modalTitle" class="text-xl font-bold">Full Size Image</h2>
+                    <button 
+                        onclick="closeImageModal()" 
+                        class="text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg p-1"
+                        aria-label="Close modal">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+                <img id="modalImage" class="max-w-full max-h-[70vh] mx-auto rounded-lg" src="" alt="">
+                <div class="mt-4 text-center">
+                    <button 
+                        onclick="downloadImage()" 
+                        class="bg-blue-700 text-white py-2 px-4 rounded-lg hover:bg-blue-800 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+                        aria-label="Download image">
+                        Download Image
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="/static/js/main.js"></script>
 </body>
 
 </html>
 
 
-        
