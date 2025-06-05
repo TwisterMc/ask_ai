@@ -69,18 +69,25 @@ function toggleHistory() {
 }
 
 /**
- * Adds a prompt to the history if it doesn't already exist
+ * Adds a prompt to the history. If it already exists, moves it to the top.
  * @param {string} prompt - The prompt to add to history
  */
 function addToHistory(prompt) {
-    // Only add if the prompt doesn't already exist in history
-    if (!promptHistory.includes(prompt)) {
-        // Add to the beginning of array and keep only last 25 items
-        promptHistory.unshift(prompt);
-        promptHistory = promptHistory.slice(0, 50);
-        localStorage.setItem('promptHistory', JSON.stringify(promptHistory));
-        updateHistoryDisplay();
+    // Check if prompt already exists and remove it
+    const index = promptHistory.indexOf(prompt);
+    if (index !== -1) {
+        promptHistory.splice(index, 1);
     }
+    
+    // Add to the beginning of array
+    promptHistory.unshift(prompt);
+    
+    // Keep only last 50 items
+    promptHistory = promptHistory.slice(0, 50);
+    
+    // Save to localStorage and update display
+    localStorage.setItem('promptHistory', JSON.stringify(promptHistory));
+    updateHistoryDisplay();
 }
 
 /**
