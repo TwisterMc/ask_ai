@@ -63,3 +63,24 @@ try:
 
 except ValueError as e:
     print(f"Error: {e}")
+
+# New function: generate a password from random words
+WORD_LIST = [
+    'apple', 'banana', 'cat', 'dog', 'elephant', 'flower', 'guitar', 'house', 'island', 'jungle',
+    'kite', 'lemon', 'mountain', 'notebook', 'orange', 'piano', 'queen', 'river', 'sun', 'tree',
+    'umbrella', 'violin', 'window', 'xylophone', 'yacht', 'zebra', 'cloud', 'dream', 'echo', 'forest',
+    'globe', 'honey', 'idea', 'jewel', 'kangaroo', 'lantern', 'mirror', 'night', 'ocean', 'pearl',
+    'quartz', 'rose', 'star', 'tiger', 'unity', 'valley', 'whale', 'xenon', 'yogurt', 'zephyr'
+]
+
+def generate_word_password(num_words=4, separator='-'):
+    """
+    Generates a password by joining random words from a word list.
+    Args:
+        num_words (int): Number of words to use.
+        separator (str): Separator between words.
+    Returns:
+        str: The generated password.
+    """
+    words = [secrets.choice(WORD_LIST) for _ in range(num_words)]
+    return separator.join(words)
