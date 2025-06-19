@@ -5,32 +5,54 @@ function showTab(tab) {
     const panelWords = document.getElementById('panel-words');
     const useWords = document.getElementById('useWords');
 
+    // Always keep both tabs tabbable
+    tabCharacters.setAttribute('tabindex', '0');
+    tabWords.setAttribute('tabindex', '0');
+
     if (tab === 'characters') {
         tabCharacters.classList.add('text-blue-700', 'border-blue-700');
         tabCharacters.classList.remove('text-gray-600', 'border-transparent');
         tabCharacters.setAttribute('aria-selected', 'true');
+        tabWords.setAttribute('aria-selected', 'false');
         tabWords.classList.remove('text-blue-700', 'border-blue-700');
         tabWords.classList.add('text-gray-600', 'border-transparent');
-        tabWords.setAttribute('aria-selected', 'false');
         panelCharacters.classList.remove('hidden');
         panelWords.classList.add('hidden');
         useWords.value = 'false';
+        tabCharacters.focus();
     } else {
         tabWords.classList.add('text-blue-700', 'border-blue-700');
         tabWords.classList.remove('text-gray-600', 'border-transparent');
         tabWords.setAttribute('aria-selected', 'true');
+        tabCharacters.setAttribute('aria-selected', 'false');
         tabCharacters.classList.remove('text-blue-700', 'border-blue-700');
         tabCharacters.classList.add('text-gray-600', 'border-transparent');
-        tabCharacters.setAttribute('aria-selected', 'false');
         panelWords.classList.remove('hidden');
         panelCharacters.classList.add('hidden');
         useWords.value = 'true';
+        tabWords.focus();
     }
 }
 
-// Set default tab on load
+function setupTabAccessibility() {
+    const tabs = [document.getElementById('tab-characters'), document.getElementById('tab-words')];
+    tabs.forEach((tab, idx) => {
+        tab.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+                e.preventDefault();
+                const nextIdx = e.key === 'ArrowRight' ? (idx + 1) % tabs.length : (idx - 1 + tabs.length) % tabs.length;
+                tabs[nextIdx].focus();
+                tabs[nextIdx].click();
+            }
+        });
+    });
+}
+
 if (typeof window !== 'undefined') {
-    window.addEventListener('DOMContentLoaded', () => showTab('characters'));
+    window.addEventListener('DOMContentLoaded', () => {
+        showTab('characters');
+        setupTabAccessibility();
+    });
 }
 
 async function generatePassword() {
