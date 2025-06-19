@@ -4,6 +4,7 @@ import base64
 import requests
 from flask import Flask, render_template, request, jsonify
 from PIL import Image
+from urllib.parse import quote
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -17,12 +18,13 @@ def enhance_prompt():
         if not request.is_json:
             return jsonify({"success": False, "error": "Request must be JSON"})
         
-        prompt = request.json.get("prompt")
+        data = request.get_json(silent=True) or {}
+        prompt = data.get("prompt")
         if not prompt:
             return jsonify({"success": False, "error": "No prompt provided"})
 
         # Create the URL for prompt enhancement
-        encoded_prompt = requests.utils.quote(f"enhance this prompt: {prompt}")
+        encoded_prompt = quote(f"enhance this prompt: {prompt}")
         enhancement_url = f"{API_CONFIG['TEXT_API']}{encoded_prompt}"
         
         # Make request to Pollinations Text API
@@ -69,16 +71,17 @@ def generate_image():
         if not request.is_json:
             return jsonify({"success": False, "error": "Request must be JSON"})
         
-        prompt = request.json.get("prompt")
+        data = request.get_json(silent=True) or {}
+        prompt = data.get("prompt")
         if not prompt:
             return jsonify({"success": False, "error": "No prompt provided"})
         
         # Get parameters from request
-        style = request.json.get("style", "photographic")
-        model = request.json.get("model", "SDXL")
-        size = request.json.get("size", "1024x1024")
-        quality = request.json.get("quality", "balanced")
-        guidance = float(request.json.get("guidance", 7.0))
+        style = data.get("style", "photographic")
+        model = data.get("model", "SDXL")
+        size = data.get("size", "1024x1024")
+        quality = data.get("quality", "balanced")
+        guidance = float(data.get("guidance", 7.0))
         
         # Convert quality setting to steps
         steps_map = {
@@ -96,7 +99,7 @@ def generate_image():
         complete_prompt = f"{style} style: {prompt}"
         
         # Create the complete URL with all parameters
-        encoded_prompt = requests.utils.quote(complete_prompt)
+        encoded_prompt = quote(complete_prompt)
         image_url = (f"{API_CONFIG['IMAGE_API']}{encoded_prompt}?"
                     f"nologo=true&"
                     f"model={model}&"
