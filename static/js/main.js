@@ -220,14 +220,13 @@ async function generateImage() {
     const img = document.getElementById('generated-image');
 
     if (!prompt) {
-        error.textContent = 'Please enter a prompt';
-        error.classList.remove('hidden');
+        showError('Please enter a prompt');
         return;
     }
 
     loading.classList.remove('hidden');
     result.classList.add('hidden');
-    error.classList.add('hidden');
+    hideError();
     document.body.classList.add('overflow-hidden');
     setFormControlsDisabled(true);
 
@@ -264,8 +263,7 @@ async function generateImage() {
             throw new Error(data.error || 'Failed to generate image');
         }
     } catch (err) {
-        error.textContent = `Error: ${err.message}`;
-        error.classList.remove('hidden');
+        showError(err.message);
     } finally {
         loading.classList.add('hidden');
         document.body.classList.remove('overflow-hidden');
@@ -287,15 +285,14 @@ async function enhancePrompt() {
     const originalLoadingText = loadingText.textContent;
 
     if (!originalPrompt) {
-        error.textContent = 'Please enter a prompt';
-        error.classList.remove('hidden');
+        showError('Please enter a prompt');
         return;
     }
     
     // Save the original prompt to history before enhancement
     addToHistory(originalPrompt);
 
-    error.classList.add('hidden');
+    hideError();
     loading.classList.remove('hidden');
     loadingText.textContent = 'Enhancing prompt...';
     document.body.classList.add('overflow-hidden');
@@ -321,8 +318,7 @@ async function enhancePrompt() {
             throw new Error(data.error || 'Failed to enhance prompt');
         }
     } catch (err) {
-        error.textContent = err.message;
-        error.classList.remove('hidden');
+        showError(err.message);
     } finally {
         loading.classList.add('hidden');
         document.body.classList.remove('overflow-hidden');
@@ -434,9 +430,7 @@ async function downloadImage() {
         document.body.removeChild(a);
     } catch (error) {
         console.error('Error downloading image:', error);
-        const errorDiv = document.getElementById('error');
-        errorDiv.textContent = 'Error downloading image';
-        errorDiv.classList.remove('hidden');
+        showError('Error downloading image');
     }
 }
 
@@ -484,4 +478,20 @@ function trapFocus(event) {
             firstFocusableElement.focus();
         }
     }
+}
+
+// Utility to show error message
+function showError(message) {
+    const errorDiv = document.getElementById('error');
+    const errorMsg = document.getElementById('error-message');
+    const closeBtn = document.getElementById('error-close');
+    errorMsg.textContent = message;
+    errorDiv.classList.remove('hidden');
+    errorDiv.focus();
+   
+}
+
+function hideError() {
+    const errorDiv = document.getElementById('error');
+    errorDiv.classList.add('hidden');
 }
