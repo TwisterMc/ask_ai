@@ -287,7 +287,7 @@ async function enhancePrompt() {
     const originalLoadingText = loadingText.textContent;
 
     if (!originalPrompt) {
-        error.textContent = 'Please enter a prompt first';
+        error.textContent = 'Please enter a prompt';
         error.classList.remove('hidden');
         return;
     }
