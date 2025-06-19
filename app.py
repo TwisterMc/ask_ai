@@ -14,7 +14,7 @@ def enhance_prompt():
 
 @app.route("/")
 def home():
-    return render_template("index.html")
+    return render_template("about.html")
 
 @app.route("/generate", methods=["POST"])
 def generate_image():
@@ -36,6 +36,10 @@ def api_generate_password():
     length = int(data.get("length", 16))
     password = generate_secure_password(length=length)
     return jsonify({"password": password})
+
+@app.route("/image")
+def image_generator():
+    return render_template("index.html")
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000, debug=True)

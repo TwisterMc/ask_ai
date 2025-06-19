@@ -3,7 +3,7 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>About Ask AI Image Generator</title>
+        <title>AI Generators</title>
         <link
             rel="icon"
             type="image/svg+xml"
@@ -22,11 +22,23 @@
         </a>
         <div class="container mx-auto px-4 py-8">
             <h1 class="text-4xl font-bold text-center mb-8">
-                Ask AI Image Generator
+                 AI  Generators
             </h1>
             <main id="main-content" class="max-w-2xl mx-auto relative">
-                <div class="bg-white rounded-lg shadow-lg p-6">about</div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-white rounded-lg shadow-lg p-6 flex flex-col items-center">
+                        <h2 class="text-2xl font-bold mb-2">AI Image Generator</h2>
+                        <p class="text-gray-700 mb-4 text-center">Generate stunning images from text prompts using advanced AI models. Enhance your prompts, customize styles, and explore creative possibilities.</p>
+                        <a href="/image" class="mt-auto px-4 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all">Go to Image Generator</a>
+                    </div>
+                    <div class="bg-white rounded-lg shadow-lg p-6 flex flex-col items-center">
+                        <h2 class="text-2xl font-bold mb-2">Password Generator</h2>
+                        <p class="text-gray-700 mb-4 text-center">Create secure, customizable passwords with adjustable length. Perfect for keeping your accounts safe and strong.</p>
+                        <a href="/password" class="mt-auto px-4 py-2 bg-green-700 text-white rounded-lg hover:bg-green-800 focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-all">Go to Password Generator</a>
+                    </div>
+                </div>
             </main>
         </div>
+        {% include 'footer.html' %}
     </body>
 </html>

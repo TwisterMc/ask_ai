@@ -6,6 +6,10 @@ async function generatePassword() {
         length = 16
         passwordLength.value = 16
     }
+    if (length > 100) {
+        length = 100
+        passwordLength.value = 100
+    }
     const response = await fetch('/api/generate_password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

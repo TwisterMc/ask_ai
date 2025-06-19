@@ -6,6 +6,7 @@ A web application that generates images using the Pollinations.AI API, featuring
 
 - **AI Image Generation**: Generate images from text descriptions using various AI models
 - **Prompt Enhancement**: Automatically enhance your prompts using AI
+- **Password Generator**: Generate secure, customizable passwords with adjustable length (minimum 16 characters)
 - **Persistent Settings**: Automatically saves and restores your preferred settings
 - **Multiple AI Models**:
   - SDXL (Best Quality)
@@ -23,6 +24,7 @@ A web application that generates images using the Pollinations.AI API, featuring
   - Adjustable creativity level
   - Prompt history with easy reuse
   - Settings persistence across sessions
+  - Password length selection (16-100 characters)
 
 ## Requirements
 
@@ -68,12 +70,18 @@ http://localhost:5000
    - Set creativity level
 4. Click "Generate Image" to create your image
 5. Previous prompts are saved in the history for easy reuse
+6. **To generate a password:**
+   - Go to `/password` or click the "Password Generator" link in the app (if available)
+   - Select your desired password length (16-100)
+   - Click "Generate Password" to get a secure password
 
 ## API Endpoints
 
 - `POST /enhance_prompt`: Enhance a text prompt using AI (powered by Pollinations.AI)
 - `POST /generate`: Generate an image from a prompt (powered by Pollinations.AI)
+- `POST /api/generate_password`: Generate a secure password (JSON: `{ "length": 20 }`)
 - `GET /`: Main application interface
+- `GET /password`: Password generator interface
 
 ## Technical Features
 
@@ -184,11 +192,3 @@ We use Tailwind CSS for all styling in this project. Here are the key principles
 <!-- Skip Link -->
 <a class="absolute -top-10 left-0 bg-blue-600 text-white p-2 z-50 transition-all duration-300 focus:top-0">
 ```
-
-## Contributing
-
-Feel free to open issues or submit pull requests for any improvements.
-
-## License
-
-This project is open source and available under the MIT License.
