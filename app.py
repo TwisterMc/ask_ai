@@ -24,5 +24,18 @@ def generate_image():
 def about():
     return render_template("about.html")
 
+@app.route("/password")
+def password():
+    return render_template("password.html")
+
+from password import generate_secure_password
+
+@app.route("/api/generate_password", methods=["POST"])
+def api_generate_password():
+    data = request.get_json(silent=True) or {}
+    length = int(data.get("length", 16))
+    password = generate_secure_password(length=length)
+    return jsonify({"password": password})
+
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000, debug=True)
