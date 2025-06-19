@@ -24,7 +24,8 @@ def enhance_prompt():
             return jsonify({"success": False, "error": "No prompt provided"})
 
         # Create the URL for prompt enhancement
-        encoded_prompt = quote(f"enhance this prompt: {prompt}")
+        additional_prompt = '. Only respond with the updated text.'
+        encoded_prompt = quote(f"enhance this prompt: {prompt} {additional_prompt}")
         enhancement_url = f"{API_CONFIG['TEXT_API']}{encoded_prompt}"
         
         # Make request to Pollinations Text API
