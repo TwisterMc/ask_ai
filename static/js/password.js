@@ -1,4 +1,4 @@
-function showTab(tab) {
+function showTab(tab, updateHash = true) {
     const tabCharacters = document.getElementById('tab-characters');
     const tabWords = document.getElementById('tab-words');
     const panelCharacters = document.getElementById('panel-characters');
@@ -20,6 +20,7 @@ function showTab(tab) {
         panelWords.classList.add('hidden');
         useWords.value = 'false';
         tabCharacters.focus();
+        if (updateHash) window.location.hash = '#characters';
     } else {
         tabWords.classList.add('text-blue-700', 'border-blue-700');
         tabWords.classList.remove('text-gray-600', 'border-transparent');
@@ -31,6 +32,7 @@ function showTab(tab) {
         panelCharacters.classList.add('hidden');
         useWords.value = 'true';
         tabWords.focus();
+        if (updateHash) window.location.hash = '#words';
     }
 }
 
@@ -50,7 +52,13 @@ function setupTabAccessibility() {
 
 if (typeof window !== 'undefined') {
     window.addEventListener('DOMContentLoaded', () => {
-        showTab('characters');
+        // Read hash and show correct tab
+        const hash = window.location.hash.replace('#', '');
+        if (hash === 'words') {
+            showTab('words', false);
+        } else {
+            showTab('characters', false);
+        }
         setupTabAccessibility();
     });
 }
