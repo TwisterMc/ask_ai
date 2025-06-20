@@ -6,7 +6,7 @@ A web application that generates images using the Pollinations.AI API, featuring
 
 - **AI Image Generation**: Generate images from text descriptions using various AI models
 - **Prompt Enhancement**: Automatically enhance your prompts using AI
-- **Password Generator**: Generate secure, customizable passwords with adjustable length (minimum 16 characters)
+- **Password Generator**: Create secure, customizable passwords using either random characters or memorable random words.
 - **Persistent Settings**: Automatically saves and restores your preferred settings
 - **Multiple AI Models**:
   - SDXL (Best Quality)
@@ -71,9 +71,11 @@ http://localhost:5000
 4. Click "Generate Image" to create your image
 5. Previous prompts are saved in the history for easy reuse
 6. **To generate a password:**
-   - Go to `/password` or click the "Password Generator" link in the app (if available)
-   - Select your desired password length (16-100)
-   - Click "Generate Password" to get a secure password
+   - Go to `/password` or click the "Password Generator" link in the app.
+   - By default, the generator uses random words for memorability.
+   - Select the number of words (4–10) and one or more categories.
+   - Optionally, switch to random characters.
+   - Click "Generate Password" to get your password, and use the copy button for convenience.
 
 ## API Endpoints
 
