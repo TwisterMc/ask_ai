@@ -61,11 +61,25 @@ async function generatePassword() {
     const useWords = document.getElementById('useWords').value === 'true';
     let length = Number(passwordLength.value);
     let numWords = 4;
+    let categories = [];
     if (useWords) {
         const numWordsInput = document.getElementById('numWords');
         if (numWordsInput) {
             numWords = Math.max(4, Math.min(10, Number(numWordsInput.value)));
             document.getElementById('numWords').value = numWords;
+        }
+        // Collect selected categories
+        const catIds = [
+            'cat-animals', 'cat-foods', 'cat-objects', 'cat-nature', 'cat-places',
+            'cat-colors', 'cat-actions', 'cat-sports'
+        ];
+        categories = catIds.filter(id => {
+            const el = document.getElementById(id);
+            return el && el.checked;
+        }).map(id => document.getElementById(id).value);
+        if (categories.length === 0) {
+            showCopyNotification('Please select at least one category.', true);
+            return;
         }
     }
     if (!useWords && length < 16) {
@@ -75,7 +89,7 @@ async function generatePassword() {
     const response = await fetch('/api/generate_password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ length, useWords, numWords })
+        body: JSON.stringify({ length, useWords, numWords, categories })
     });
     const data = await response.json();
     passwordBox.value = data.password;

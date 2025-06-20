@@ -37,7 +37,8 @@ def api_generate_password():
     if use_words:
         num_words = int(data.get("numWords", 4))
         num_words = max(4, min(num_words, 10))
-        password = generate_word_password(num_words=num_words)
+        categories = data.get("categories", None)
+        password = generate_word_password(num_words=num_words, categories=categories)
     else:
         length = int(data.get("length", 16))
         password = generate_secure_password(length=length)
