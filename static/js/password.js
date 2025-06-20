@@ -54,10 +54,10 @@ if (typeof window !== 'undefined') {
     window.addEventListener('DOMContentLoaded', () => {
         // Read hash and show correct tab
         const hash = window.location.hash.replace('#', '');
-        if (hash === 'words') {
-            showTab('words', false);
-        } else {
+        if (hash === 'characters') {
             showTab('characters', false);
+        } else {
+            showTab('words', false);
         }
         setupTabAccessibility();
     });
