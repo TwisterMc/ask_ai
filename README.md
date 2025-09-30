@@ -9,6 +9,7 @@ A web application that generates images using the Pollinations.AI API, featuring
 - **Password Generator**: Create secure, customizable passwords using either random characters or memorable random words.
 - **Persistent Settings**: Automatically saves and restores your preferred settings
 - **Multiple AI Models**:
+
   - SDXL (Best Quality)
   - Stable Diffusion 1.5
   - Anything V5 (Anime)
@@ -36,12 +37,14 @@ A web application that generates images using the Pollinations.AI API, featuring
 ## Installation
 
 1. Clone the repository:
+
 ```bash
 git clone https://github.com/TwisterMc/ask_ai
 cd ask_ai
 ```
 
 2. Install dependencies:
+
 ```bash
 python3 -m pip install -r requirements.txt
 ```
@@ -49,11 +52,13 @@ python3 -m pip install -r requirements.txt
 ## Running the Application
 
 1. Start the Flask server:
+
 ```bash
 python3 app.py
 ```
 
 2. Open your web browser and navigate to:
+
 ```
 http://localhost:5000
 ```
@@ -88,7 +93,7 @@ http://localhost:5000
 ## Technical Features
 
 - **Local Storage**: Persists user preferences and prompt history
-- **Accessibility Enhancements**: 
+- **Accessibility Enhancements**:
   - Scroll locking during loading states
   - Loading overlay with semi-transparent background
   - Proper ARIA states for all interactive elements
@@ -102,6 +107,7 @@ http://localhost:5000
 The application follows WCAG 2.2 guidelines to ensure accessibility for all users:
 
 ### Perceivable
+
 - High contrast text and interface elements (minimum 4.5:1 ratio)
 - Images include descriptive alt text
 - Form controls have visible labels
@@ -109,6 +115,7 @@ The application follows WCAG 2.2 guidelines to ensure accessibility for all user
 - Text can be resized up to 200% without loss of functionality
 
 ### Operable
+
 - All functionality is available via keyboard
 - Skip to main content link for keyboard users
 - No keyboard traps
@@ -118,6 +125,7 @@ The application follows WCAG 2.2 guidelines to ensure accessibility for all user
 - Multiple ways to access content (navigation, search, etc.)
 
 ### Understandable
+
 - Clear and consistent navigation
 - Form labels are descriptive
 - Error messages are clear and helpful
@@ -125,12 +133,14 @@ The application follows WCAG 2.2 guidelines to ensure accessibility for all user
 - Predictable interface behavior
 
 ### Robust
+
 - Valid HTML5 markup
 - ARIA labels and roles where needed
 - Compatible with assistive technologies
 - Responsive design for different viewport sizes
 
 ### Interactive Elements
+
 - Buttons have clear focus states
 - Range inputs use native controls for better accessibility
 - Form controls have proper labels and ARIA attributes
@@ -147,18 +157,24 @@ The application follows WCAG 2.2 guidelines to ensure accessibility for all user
 We use Tailwind CSS for all styling in this project. Here are the key principles:
 
 1. **No Custom CSS**
+
    - Use Tailwind utility classes for all styling needs
    - Avoid inline styles and custom CSS classes
    - If a style can't be achieved with utilities, consider using Tailwind's @apply or adjusting the Tailwind config
 
 2. **Common Patterns**
+
    - Forms: Use standard classes for inputs and controls
      ```html
-     <input class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:outline-none">
+     <input
+       class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:outline-none"
+     />
      ```
    - Buttons: Maintain consistent button styling
      ```html
-     <button class="bg-blue-700 text-white py-2 px-4 rounded-lg hover:bg-blue-800 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors">
+     <button
+       class="bg-blue-700 text-white py-2 px-4 rounded-lg hover:bg-blue-800 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+     ></button>
      ```
    - Focus States: Use Tailwind's focus utilities
      ```html
@@ -166,12 +182,14 @@ We use Tailwind CSS for all styling in this project. Here are the key principles
      ```
 
 3. **Accessibility**
+
    - Use Tailwind's built-in accessibility classes
    - Maintain proper color contrast using Tailwind's color palette
    - Ensure focus states are visible using focus: utilities
    - Use sr-only class for screen reader content
 
 4. **Responsive Design**
+
    - Use Tailwind's responsive prefixes (sm:, md:, lg:, xl:)
    - Mobile-first approach with progressive enhancement
 
@@ -183,14 +201,26 @@ We use Tailwind CSS for all styling in this project. Here are the key principles
 
 ```html
 <!-- Form Input -->
-<input class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:outline-none">
+<input
+  class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:outline-none"
+/>
 
 <!-- Primary Button -->
-<button class="bg-blue-700 text-white py-2 px-4 rounded-lg hover:bg-blue-800 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors">
-
-<!-- Card Container -->
-<div class="bg-white rounded-lg shadow-lg p-6">
-
-<!-- Skip Link -->
-<a class="absolute -top-10 left-0 bg-blue-600 text-white p-2 z-50 transition-all duration-300 focus:top-0">
+<button
+  class="bg-blue-700 text-white py-2 px-4 rounded-lg hover:bg-blue-800 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+>
+  <!-- Card Container -->
+  <div class="bg-white rounded-lg shadow-lg p-6">
+    <!-- Skip Link -->
+    <a
+      class="absolute -top-10 left-0 bg-blue-600 text-white p-2 z-50 transition-all duration-300 focus:top-0"
+    ></a>
+  </div>
+</button>
 ```
+
+## Error: externally-managed-environment?
+
+1. First, create a virtual environment in your project directory: `python3 -m venv venv`
+2. Activate the virtual environment: `source venv/bin/activate`
+3. Then install the requirements: `pip install -r requirements.txt`
