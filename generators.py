@@ -15,11 +15,14 @@ def enhance_prompt_api(request):
         prompt = data.get("prompt")
         if not prompt:
             return jsonify({"success": False, "error": "No prompt provided"})
-        additional_prompt = '. Only respond with the updated text.'
-        encoded_prompt = quote(f"enhance this prompt: {prompt} {additional_prompt}")
+        # Simplify the prompt to avoid parsing issues with the API
+        enhancement_prompt = f"Enhance this prompt for an AI image generator: {prompt}"
+        encoded_prompt = quote(enhancement_prompt)
         enhancement_url = f"{API_CONFIG['TEXT_API']}{encoded_prompt}"
+        print(f"Enhancement URL: {enhancement_url}")
         response = requests.get(enhancement_url, timeout=API_CONFIG['TIMEOUT'])
         if response.status_code != 200:
+            print(f"API Error {response.status_code}: {response.text}")
             raise Exception(f"API request failed with status {response.status_code}")
         text = response.text.strip()
         pattern = r'(?:Sure!|Here\'s|I can help)[^"]*"([^"]+)"'
@@ -71,8 +74,10 @@ def generate_image_api(request):
                     f"height={height}&"
                     f"steps={steps}&"
                     f"guidance_scale={guidance}")
+        print(f"Generated URL: {image_url}")
         img_response = requests.get(image_url, timeout=API_CONFIG['TIMEOUT'])
         if img_response.status_code != 200:
+            print(f"API Error {img_response.status_code}: {img_response.text}")
             raise Exception(f"API request failed with status {img_response.status_code}")
         img = Image.open(io.BytesIO(img_response.content))
         img_io = io.BytesIO()
