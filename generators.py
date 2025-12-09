@@ -19,10 +19,23 @@ def enhance_prompt_api(request):
         # Simplify the prompt to avoid parsing issues with the API
         enhancement_prompt = f"Enhance this prompt for an AI image generator: {prompt}"
         encoded_prompt = quote(enhancement_prompt)
+        # Build enhancement URL without referrer initially
         enhancement_url = f"{API_CONFIG['TEXT_API']}{encoded_prompt}"
+        
+        # Add referrer if not localhost (API doesn't accept IP addresses as referrer)
+        host = request.host or API_CONFIG['REFERRER']
+        if host and not host.startswith('127.0.0.1') and not host.startswith('localhost'):
+            enhancement_url += f"?referrer={host}"
+        
         print(f"Enhancement URL: {enhancement_url}")
+        
+        # Prepare headers with Bearer token if available
+        headers = {}
+        if API_CONFIG['API_TOKEN']:
+            headers['Authorization'] = f"Bearer {API_CONFIG['API_TOKEN']}"
+        
         try:
-            response = requests.get(enhancement_url, timeout=API_CONFIG['TIMEOUT'])
+            response = requests.get(enhancement_url, headers=headers, timeout=API_CONFIG['TIMEOUT'])
         except Timeout:
             print(f"Timeout connecting to enhancement API")
             return jsonify({"success": False, "error": "The AI enhancement service took too long to respond. Please try again."})
@@ -66,36 +79,32 @@ def generate_image_api(request):
         if not prompt:
             return jsonify({"success": False, "error": "No prompt provided"})
         style = data.get("style", "photographic")
-        model = data.get("model", "SDXL")
+        model = data.get("model", "flux")
         size = data.get("size", "1024x1024")
-        quality = data.get("quality", "balanced")
-        guidance = float(data.get("guidance", 7.0))
         negative_prompt = data.get("negative_prompt", "")
         seed = data.get("seed", None)
         
-        steps_map = {
-            "fast": 20,
-            "balanced": 30,
-            "detailed": 50,
-            "maximum": 75
-        }
-        steps = steps_map.get(quality, 30)
         width, height = map(int, size.split('x'))
         # Format the prompt with style for better API recognition
         complete_prompt = f"{prompt}, {style} style, high quality"
         encoded_prompt = quote(complete_prompt)
+        # Build URL - let API use default model (flux) to avoid 502 errors
         image_url = (f"{API_CONFIG['IMAGE_API']}{encoded_prompt}?"
-                    f"nologo=true&"
-                    f"model={model}&"
                     f"width={width}&"
-                    f"height={height}&"
-                    f"steps={steps}&"
-                    f"guidance_scale={guidance}")
+                    f"height={height}")
         
-        # Add negative prompt if provided
-        if negative_prompt:
-            encoded_negative = quote(negative_prompt)
-            image_url += f"&negative_prompt={encoded_negative}"
+        # Only add model parameter for non-flux models
+        if model and model.lower() != 'flux':
+            image_url += f"&model={model}"
+        
+        # Add referrer if not localhost (API doesn't accept IP addresses as referrer)
+        host = request.host or API_CONFIG['REFERRER']
+        if host and not host.startswith('127.0.0.1') and not host.startswith('localhost'):
+            image_url += f"&referrer={host}"
+        
+        # Add nologo parameter if authenticated
+        if API_CONFIG['API_TOKEN']:
+            image_url += "&nologo=true"
         
         # Add seed if provided
         if seed is not None:
@@ -104,8 +113,14 @@ def generate_image_api(request):
         print(f"Generated URL: {image_url}")
         print(f"Request timeout: {API_CONFIG['TIMEOUT']} seconds")
         
+        # Prepare headers with Bearer token if available
+        headers = {}
+        if API_CONFIG['API_TOKEN']:
+            headers['Authorization'] = f"Bearer {API_CONFIG['API_TOKEN']}"
+            print("Using Bearer token authentication")
+        
         try:
-            img_response = requests.get(image_url, timeout=API_CONFIG['TIMEOUT'])
+            img_response = requests.get(image_url, headers=headers, timeout=API_CONFIG['TIMEOUT'])
         except Timeout:
             print(f"Timeout generating image")
             return jsonify({"success": False, "error": "Image generation took too long (timeout). The API may be experiencing high load. Please try again in a moment."})

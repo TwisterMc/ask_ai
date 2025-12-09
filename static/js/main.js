@@ -267,7 +267,6 @@ async function generateImage() {
     const size = document.getElementById("size").value;
     const quality = document.getElementById("quality").value;
     const guidance = document.getElementById("guidance").value;
-    const negativePrompt = document.getElementById("negative-prompt").value;
     const seedMode = document.getElementById("seed-mode").value;
     const seedValue = document.getElementById("seed").value;
 
@@ -279,11 +278,6 @@ async function generateImage() {
       quality,
       guidance,
     };
-
-    // Add negative prompt if provided
-    if (negativePrompt) {
-      requestBody.negative_prompt = negativePrompt;
-    }
 
     // Add seed if in fixed mode and has a value
     if (seedMode === "fixed" && seedValue) {

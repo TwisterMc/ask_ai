@@ -50,7 +50,7 @@ python3 -m pip install -r requirements.txt
 
 ## Running the Application
 
-1. Create and activate a virtual environment (first time only):
+### First Time Only (when you first clone the project):
 
 ```bash
 cd ask_ai
@@ -59,17 +59,58 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-2. Start the Flask server (after virtual environment is activated):
+After this runs once, you're done with setup forever. The `venv` folder is now created with all dependencies installed.
+
+### Every Time You Want to Run the App (after first time setup):
+
+Open your terminal and run:
 
 ```bash
+cd ask_ai
+source venv/bin/activate
 flask --app app run
 ```
 
 The server will start at `http://127.0.0.1:5000`
 
-3. To stop the server, press `CTRL+C` in the terminal.
+To stop the server, press `CTRL+C` in the terminal.
 
-**Note:** Make sure you're in the `ask_ai` directory and have the virtual environment activated before running Flask.
+### To Deactivate the Virtual Environment (when done):
+
+```bash
+deactivate
+```
+
+**Summary:**
+
+- **One-time:** Run the "First Time Only" commands above (just once, ever)
+- **Every time:** Activate the venv with `source venv/bin/activate`, then run `flask --app app run`
+- You can close and reopen your terminal as many times as you want - the `venv` folder is permanent and already has everything installed
+
+## Deployment
+
+### PythonAnywhere (or other hosting)
+
+1. Clone your repository on the hosting platform
+2. Create a virtual environment and install dependencies
+3. Set environment variables for optional features:
+   - `POLLINATIONS_API_TOKEN`: Your Bearer token from [enter.pollinations.ai](https://enter.pollinations.ai) (optional - enables watermark removal)
+   - `POLLINATIONS_REFERRER`: (optional) Fallback referrer domain if auto-detection fails
+4. Configure your web app to use Flask
+5. Update the WSGI configuration to point to `app.py`
+
+**How it works:**
+
+- The app automatically detects your domain from the request (e.g., `twistermc.pythonanywhere.com` or `localhost:5000`)
+- The domain is sent to the Pollinations API as the referrer
+- If auto-detection fails for some reason, it falls back to the `POLLINATIONS_REFERRER` environment variable (defaults to `localhost:5000`)
+
+**For watermark removal and higher rate limits:**
+
+- Get a free account at [enter.pollinations.ai](https://enter.pollinations.ai) (formerly auth.pollinations.ai)
+- Copy your API Bearer token
+- Add `POLLINATIONS_API_TOKEN` as an environment variable on your hosting platform
+- The API will automatically use your token for watermark removal and higher rate limits
 
 ## Usage
 
