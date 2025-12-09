@@ -20,7 +20,6 @@ A web application that generates images using the Pollinations.AI API, featuring
   - Various image sizes (512x512 to 1536x1024, including portrait and landscape options)
   - Quality settings (fast to maximum detail)
   - Adjustable creativity level
-  - Negative prompt support (specify what you don't want in the image)
   - Seed control (random or fixed for reproducible results)
   - Prompt history with easy reuse
   - Settings persistence across sessions
@@ -42,7 +41,17 @@ git clone https://github.com/TwisterMc/ask_ai
 cd ask_ai
 ```
 
-2. Install dependencies:
+2. (Optional) Set up your API token:
+
+Create a `.env` file in the project root:
+
+```bash
+echo 'POLLINATIONS_API_TOKEN=your-api-key-here' > .env
+```
+
+Replace `your-api-key-here` with your API key from [enter.pollinations.ai](https://enter.pollinations.ai). This enables watermark removal on generated images.
+
+3. Install dependencies:
 
 ```bash
 python3 -m pip install -r requirements.txt
