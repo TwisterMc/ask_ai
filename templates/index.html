@@ -359,8 +359,14 @@
       class="hidden fixed inset-0 z-50 overflow-auto bg-black/90 p-4 flex items-center justify-center"
       role="dialog"
       aria-modal="true"
+      aria-labelledby="image-modal-title"
+      onclick="closeImageModalOnBackdrop(event)"
     >
-      <div class="relative max-w-[95vw] max-h-[95vh]">
+      <div
+        class="relative max-w-[95vw] max-h-[95vh]"
+        onclick="event.stopPropagation()"
+        role="document"
+      >
         <div class="relative">
           <img
             id="modalImage"
@@ -371,6 +377,7 @@
           <!-- Overlay buttons container -->
           <div class="absolute top-4 right-4 flex items-center space-x-2">
             <button
+              type="button"
               onclick="downloadImage()"
               class="bg-black/50 text-white p-2 rounded-lg hover:bg-black/70 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors backdrop-blur-sm"
               aria-label="Download image"
@@ -390,6 +397,7 @@
               </svg>
             </button>
             <button
+              type="button"
               onclick="closeImageModal()"
               class="bg-black/50 text-white p-2 rounded-lg hover:bg-black/70 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors backdrop-blur-sm"
               aria-label="Close modal"
@@ -419,22 +427,28 @@
       class="hidden fixed inset-0 z-50 overflow-auto bg-black/50 p-4 flex items-center justify-center"
       role="dialog"
       aria-modal="true"
+      aria-labelledby="modal-title"
       onclick="closeEnhancementModalOnBackdrop(event)"
     >
       <div
         class="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-auto"
         onclick="event.stopPropagation()"
+        role="document"
       >
         <div
-          class="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between"
+          class="sticky top-0 bg-white border-b px-4 sm:px-6 py-4 flex items-center justify-between z-10"
         >
-          <h3 class="text-xl font-bold text-gray-800">
+          <h3
+            id="modal-title"
+            class="text-lg sm:text-xl font-bold text-gray-800"
+          >
             Enhanced Prompt Options
           </h3>
           <button
             onclick="closeEnhancementModal()"
-            class="text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+            class="text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded p-1 -mr-1"
             aria-label="Close modal"
+            type="button"
           >
             <svg
               class="w-6 h-6"
@@ -451,7 +465,10 @@
             </svg>
           </button>
         </div>
-        <div id="enhancementContent" class="px-6 py-4 space-y-4">
+        <div
+          id="enhancementContent"
+          class="px-4 sm:px-6 py-4 space-y-3 sm:space-y-4"
+        >
           <!-- Content will be populated by JavaScript -->
         </div>
       </div>

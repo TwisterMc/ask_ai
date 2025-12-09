@@ -434,6 +434,12 @@ function showEnhancementModal(enhancedText, originalPrompt) {
   modal.classList.remove("hidden");
   document.body.classList.add("overflow-hidden");
 
+  // Set focus to modal for keyboard navigation
+  setTimeout(() => {
+    const firstButton = modal.querySelector("button");
+    if (firstButton) firstButton.focus();
+  }, 100);
+
   // Add escape key listener
   const escapeHandler = (e) => {
     if (e.key === "Escape") {
@@ -698,6 +704,16 @@ function openImageModal(imageUrl, altText) {
 
   // Set up focus trap
   focusTrapOnModal(modal);
+}
+
+/**
+ * Closes the image modal when clicking on backdrop
+ * @param {Event} event - Click event
+ */
+function closeImageModalOnBackdrop(event) {
+  if (event.target.id === "imageModal") {
+    closeImageModal();
+  }
 }
 
 /**
