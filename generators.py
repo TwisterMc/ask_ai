@@ -99,14 +99,11 @@ def generate_image_api(request):
         # Format the prompt with style for better API recognition
         complete_prompt = f"{prompt}, {style} style, high quality"
         encoded_prompt = quote(complete_prompt)
-        # Build URL - let API use default model (flux) to avoid 502 errors
+        # Build URL with model parameter (required for new endpoint)
         image_url = (f"{API_CONFIG['IMAGE_API']}{encoded_prompt}?"
                     f"width={width}&"
-                    f"height={height}")
-        
-        # Only add model parameter for non-flux models
-        if model and model.lower() != 'flux':
-            image_url += f"&model={model}"
+                    f"height={height}&"
+                    f"model={model}")
         
         # Add referrer if not localhost (API doesn't accept IP addresses as referrer)
         host = request.host or API_CONFIG['REFERRER']
