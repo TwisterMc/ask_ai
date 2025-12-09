@@ -529,69 +529,55 @@ function parseEnhancedPrompts(text) {
       }
     }
 
-    // Pattern 2: "Option X" or numbered format with "Prompt:" or just "-"
-    const optionMatch = line.match(
-      /^(?:Option\s+([A-Z0-9]+)|(\d+)\))\s*[—–-]?\s*(.*)$/i
-    );
+    // Pattern 2: "Option X: title" format (new format from AI)
+    // Matches: "Option 1: Hyperreal Icy Apple Halo"
+    const optionMatch = line.match(/^Option\s+(\d+):\s*(.+)$/i);
 
     if (optionMatch) {
-      const optionLabel = optionMatch[1] || optionMatch[2];
-      const title = optionMatch[3] || `Option ${optionLabel}`;
+      const optionLabel = optionMatch[1];
+      const title = optionMatch[2];
 
-      // Look for prompt on next lines
+      // Prompt text starts on the next line and continues until next "Option X:" or empty line
       let promptText = "";
       let j = i + 1;
 
       while (j < lines.length) {
         const promptLine = lines[j].trim();
 
-        // Check for "- Prompt:" or "Prompt:"
-        const promptMatch = promptLine.match(
-          /^-?\s*(?:Prompt|prompt):\s*(.+)$/
-        );
-        if (promptMatch) {
-          promptText = promptMatch[1];
-
-          // Continue reading subsequent lines
-          j++;
-          while (j < lines.length) {
-            const nextLine = lines[j].trim();
-
-            // Stop at new option or section
-            if (
-              nextLine.match(/^(?:Option\s+[A-Z]|\d+\)|Tips|If you|Would you)/i)
-            ) {
-              break;
-            }
-
-            // Stop at empty line followed by new section
-            if (!nextLine && j + 1 < lines.length) {
-              const afterEmpty = lines[j + 1].trim();
-              if (afterEmpty.match(/^(?:Option|If you|Tips)/i)) {
-                break;
-              }
-            }
-
-            if (nextLine) {
-              promptText += " " + nextLine;
-            }
-            j++;
-          }
-
-          prompts.push({
-            title: title,
-            text: promptText.trim(),
-          });
-
-          i = j;
+        // Stop at next option
+        if (promptLine.match(/^Option\s+\d+:/i)) {
           break;
         }
 
+        // Stop at empty line
+        if (!promptLine) {
+          // Check if next non-empty line is a new option
+          let k = j + 1;
+          while (k < lines.length && !lines[k].trim()) {
+            k++;
+          }
+          if (k < lines.length && lines[k].trim().match(/^Option\s+\d+:/i)) {
+            break;
+          }
+          j++;
+          continue;
+        }
+
+        // Add line to prompt text
+        if (promptText) {
+          promptText += " " + promptLine;
+        } else {
+          promptText = promptLine;
+        }
         j++;
-        if (j > i + 3) break; // Don't search too far
       }
 
       if (promptText) {
+        prompts.push({
+          title: title,
+          text: promptText.trim(),
+        });
+        i = j;
         continue;
       }
     }

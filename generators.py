@@ -16,8 +16,8 @@ def enhance_prompt_api(request):
         prompt = data.get("prompt")
         if not prompt:
             return jsonify({"success": False, "error": "No prompt provided"})
-        # Let AI provide enhanced options naturally
-        enhancement_prompt = f"Enhance this prompt for an AI image generator: {prompt}"
+        # Request multiple options in a consistent format
+        enhancement_prompt = f"Generate 3 enhanced versions of this prompt for an AI image generator. Format your response EXACTLY as shown, with no other text:\n\nOption 1: [short title]\n[the enhanced prompt text here]\n\nOption 2: [short title]\n[the enhanced prompt text here]\n\nOption 3: [short title]\n[the enhanced prompt text here]\n\nOriginal prompt: {prompt}"
         encoded_prompt = quote(enhancement_prompt)
         # Build enhancement URL without referrer initially
         enhancement_url = f"{API_CONFIG['TEXT_API']}{encoded_prompt}"
