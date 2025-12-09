@@ -16,7 +16,7 @@ def enhance_prompt_api(request):
         prompt = data.get("prompt")
         if not prompt:
             return jsonify({"success": False, "error": "No prompt provided"})
-        # Simplify the prompt to avoid parsing issues with the API
+        # Let AI provide enhanced options naturally
         enhancement_prompt = f"Enhance this prompt for an AI image generator: {prompt}"
         encoded_prompt = quote(enhancement_prompt)
         # Build enhancement URL without referrer initially
@@ -50,18 +50,9 @@ def enhance_prompt_api(request):
             print(f"API Error {response.status_code}: {response.text}")
             return jsonify({"success": False, "error": f"Enhancement service returned error {response.status_code}. Please try again."})
         
-        text = response.text.strip()
-        pattern = r'(?:Sure!|Here\'s|I can help)[^"]*"([^"]+)"'
-        match = re.search(pattern, text)
-        if match:
-            enhanced_prompt = match.group(1).strip()
-        else:
-            start_quote = text.find('"')
-            end_quote = text.rfind('"')
-            if start_quote != -1 and end_quote != -1 and end_quote > start_quote:
-                enhanced_prompt = text[start_quote + 1:end_quote]
-            else:
-                enhanced_prompt = text
+        # Return the full enhanced text for modal display
+        enhanced_prompt = response.text.strip()
+        
         return jsonify({
             "success": True,
             "enhanced_prompt": enhanced_prompt

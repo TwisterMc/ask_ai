@@ -336,9 +336,6 @@ async function enhancePrompt() {
     return;
   }
 
-  // Save the original prompt to history before enhancement
-  addToHistory(originalPrompt);
-
   hideError();
   loading.classList.remove("hidden");
   loadingText.textContent = "Enhancing prompt...";
@@ -357,10 +354,8 @@ async function enhancePrompt() {
     const data = await response.json();
 
     if (data.success) {
-      // Update the prompt field with enhanced version
-      promptElement.value = data.enhanced_prompt;
-      // Add enhanced prompt to history with a prefix to distinguish it
-      addToHistory(`✨ ${data.enhanced_prompt}`);
+      // Show enhancement modal with the response
+      showEnhancementModal(data.enhanced_prompt, originalPrompt);
     } else {
       throw new Error(data.error || "Failed to enhance prompt");
     }
@@ -372,6 +367,308 @@ async function enhancePrompt() {
     loadingText.textContent = originalLoadingText;
     setFormControlsDisabled(false);
   }
+}
+
+/**
+ * Shows the enhancement modal with parsed prompts
+ * @param {string} enhancedText - The AI-generated enhanced text
+ * @param {string} originalPrompt - The original user prompt
+ */
+function showEnhancementModal(enhancedText, originalPrompt) {
+  const modal = document.getElementById("enhancementModal");
+  const content = document.getElementById("enhancementContent");
+
+  // Parse the response to extract individual prompts
+  const prompts = parseEnhancedPrompts(enhancedText);
+
+  console.log("Parsed prompts:", prompts); // Debug
+
+  // Build the modal content
+  let html = "";
+
+  if (prompts.length > 0) {
+    prompts.forEach((prompt, index) => {
+      const escapedText = escapeHtml(prompt.text);
+      html += `
+        <div class="border rounded-lg p-4 bg-gray-50 hover:bg-gray-100 transition-colors">
+          <h4 class="font-semibold text-gray-700 mb-2">${escapeHtml(
+            prompt.title || `Option ${index + 1}`
+          )}</h4>
+          <p class="text-gray-600 text-sm whitespace-pre-wrap mb-3">${escapedText}</p>
+          <button
+            class="use-prompt-btn w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors text-sm font-medium"
+            data-prompt="${escapedText}"
+          >
+            Use This Prompt
+          </button>
+        </div>
+      `;
+    });
+  } else {
+    // If no prompts parsed, show the full text
+    const escapedText = escapeHtml(enhancedText);
+    html = `
+      <div class="border rounded-lg p-4 bg-gray-50">
+        <h4 class="font-semibold text-gray-700 mb-2">Enhanced Response</h4>
+        <p class="text-gray-600 text-sm whitespace-pre-wrap mb-3">${escapedText}</p>
+        <button
+          class="use-prompt-btn mt-3 w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors text-sm font-medium"
+          data-prompt="${escapedText}"
+        >
+          Use This Text
+        </button>
+      </div>
+    `;
+  }
+
+  content.innerHTML = html;
+
+  // Attach event listeners to all use buttons
+  content.querySelectorAll(".use-prompt-btn").forEach((btn) => {
+    btn.addEventListener("click", function () {
+      const text = this.getAttribute("data-prompt");
+      usePrompt(text);
+    });
+  });
+
+  modal.classList.remove("hidden");
+  document.body.classList.add("overflow-hidden");
+
+  // Add escape key listener
+  const escapeHandler = (e) => {
+    if (e.key === "Escape") {
+      closeEnhancementModal();
+      document.removeEventListener("keydown", escapeHandler);
+    }
+  };
+  document.addEventListener("keydown", escapeHandler);
+}
+
+/**
+ * Parses enhanced text to extract individual prompt options
+ * @param {string} text - The enhanced text to parse
+ * @returns {Array} Array of {title, text} objects
+ */
+function parseEnhancedPrompts(text) {
+  const prompts = [];
+  const lines = text.split("\n");
+
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i].trim();
+
+    // Pattern 1: Title on one line, prompt on next line starting with "-"
+    // Example: "Macro close-up\n- Extreme close-up of..."
+    if (
+      line &&
+      !line.startsWith("-") &&
+      !line.match(/^(?:Option|If you|Tips|Would you|Note)/i)
+    ) {
+      const title = line;
+
+      // Check if next line starts with "-" (the prompt)
+      if (i + 1 < lines.length) {
+        const nextLine = lines[i + 1].trim();
+        if (nextLine.startsWith("-")) {
+          // Extract the prompt (everything after the dash)
+          let promptText = nextLine.substring(1).trim();
+
+          // Continue reading lines until we hit an empty line or another title
+          let j = i + 2;
+          while (j < lines.length) {
+            const continueLine = lines[j].trim();
+
+            // Stop at empty line (indicates new section)
+            if (!continueLine) {
+              break;
+            }
+
+            // Stop if we hit another title pattern or section
+            if (
+              !continueLine.startsWith("-") &&
+              !continueLine.match(/^(?:If you|Tips|Would you|Note|Optional)/i)
+            ) {
+              // Check if this looks like a new title (short line followed by dash)
+              if (j + 1 < lines.length && lines[j + 1].trim().startsWith("-")) {
+                break;
+              }
+            }
+
+            // Stop at instruction sections
+            if (
+              continueLine.match(/^(?:If you|Tips|Would you|Note|Optional)/i)
+            ) {
+              break;
+            }
+
+            // Add to prompt text if it doesn't start with dash (continuation)
+            if (!continueLine.startsWith("-")) {
+              promptText += " " + continueLine;
+            } else {
+              // Hit another prompt, stop here
+              break;
+            }
+
+            j++;
+          }
+
+          prompts.push({
+            title: title,
+            text: promptText.trim(),
+          });
+
+          i = j;
+          continue;
+        }
+      }
+    }
+
+    // Pattern 2: "Option X" or numbered format with "Prompt:" or just "-"
+    const optionMatch = line.match(
+      /^(?:Option\s+([A-Z0-9]+)|(\d+)\))\s*[—–-]?\s*(.*)$/i
+    );
+
+    if (optionMatch) {
+      const optionLabel = optionMatch[1] || optionMatch[2];
+      const title = optionMatch[3] || `Option ${optionLabel}`;
+
+      // Look for prompt on next lines
+      let promptText = "";
+      let j = i + 1;
+
+      while (j < lines.length) {
+        const promptLine = lines[j].trim();
+
+        // Check for "- Prompt:" or "Prompt:"
+        const promptMatch = promptLine.match(
+          /^-?\s*(?:Prompt|prompt):\s*(.+)$/
+        );
+        if (promptMatch) {
+          promptText = promptMatch[1];
+
+          // Continue reading subsequent lines
+          j++;
+          while (j < lines.length) {
+            const nextLine = lines[j].trim();
+
+            // Stop at new option or section
+            if (
+              nextLine.match(/^(?:Option\s+[A-Z]|\d+\)|Tips|If you|Would you)/i)
+            ) {
+              break;
+            }
+
+            // Stop at empty line followed by new section
+            if (!nextLine && j + 1 < lines.length) {
+              const afterEmpty = lines[j + 1].trim();
+              if (afterEmpty.match(/^(?:Option|If you|Tips)/i)) {
+                break;
+              }
+            }
+
+            if (nextLine) {
+              promptText += " " + nextLine;
+            }
+            j++;
+          }
+
+          prompts.push({
+            title: title,
+            text: promptText.trim(),
+          });
+
+          i = j;
+          break;
+        }
+
+        j++;
+        if (j > i + 3) break; // Don't search too far
+      }
+
+      if (promptText) {
+        continue;
+      }
+    }
+
+    i++;
+  }
+
+  return prompts;
+}
+
+/**
+ * Closes the enhancement modal
+ */
+function closeEnhancementModal() {
+  const modal = document.getElementById("enhancementModal");
+  modal.classList.add("hidden");
+  document.body.classList.remove("overflow-hidden");
+}
+
+/**
+ * Closes the enhancement modal when clicking on backdrop
+ * @param {Event} event - Click event
+ */
+function closeEnhancementModalOnBackdrop(event) {
+  // Only close if clicking directly on the backdrop (not the modal content)
+  if (event.target.id === "enhancementModal") {
+    closeEnhancementModal();
+  }
+}
+
+/**
+ * Uses the selected prompt by setting it in the prompt field
+ * @param {string} promptText - The prompt text to use
+ */
+function usePrompt(promptText) {
+  const promptElement = document.getElementById("prompt");
+  // Decode HTML entities
+  const textarea = document.createElement("textarea");
+  textarea.innerHTML = promptText;
+  const decodedText = textarea.value;
+
+  promptElement.value = decodedText;
+  addToHistory(decodedText);
+  closeEnhancementModal();
+}
+
+/**
+ * Copies prompt to clipboard
+ * @param {string} text - Text to copy
+ * @param {HTMLElement} button - The button element that was clicked
+ */
+async function copyPromptToClipboard(text, button) {
+  try {
+    // Decode HTML entities
+    const textarea = document.createElement("textarea");
+    textarea.innerHTML = text;
+    const decodedText = textarea.value;
+
+    await navigator.clipboard.writeText(decodedText);
+
+    // Show brief success feedback
+    const originalText = button.textContent;
+    button.textContent = "Copied!";
+    button.classList.add("bg-green-50");
+    setTimeout(() => {
+      button.textContent = originalText;
+      button.classList.remove("bg-green-50");
+    }, 2000);
+  } catch (err) {
+    console.error("Copy failed:", err);
+    showError("Failed to copy to clipboard");
+  }
+}
+
+/**
+ * Escapes HTML to prevent XSS
+ * @param {string} text - Text to escape
+ * @returns {string} Escaped text
+ */
+function escapeHtml(text) {
+  const div = document.createElement("div");
+  div.textContent = text;
+  return div.innerHTML.replace(/'/g, "&#39;");
 }
 
 /**
