@@ -1,6 +1,10 @@
 from flask import Flask, render_template, request, jsonify
 from urllib.parse import quote
 from generators import enhance_prompt_api, generate_image_api
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Initialize Flask app
 app = Flask(__name__)

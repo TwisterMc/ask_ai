@@ -13,7 +13,6 @@ A web application that generates images using the Pollinations.AI API, featuring
   - FLUX (Latest - Best Quality)
   - Turbo (Fast Generation)
   - GPT Image
-  - Kontext (Image-to-Image transformations)
 
 - **Customization Options**:
   - Multiple style presets (photographic, digital art, cinematic, steampunk, cyberpunk, neon, pixel art, and more)
