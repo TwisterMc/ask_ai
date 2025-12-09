@@ -10,19 +10,18 @@ A web application that generates images using the Pollinations.AI API, featuring
 - **Persistent Settings**: Automatically saves and restores your preferred settings
 - **Multiple AI Models**:
 
-  - SDXL (Best Quality)
-  - Stable Diffusion 1.5
-  - Anything V5 (Anime)
-  - Dreamshaper V7
-  - Openjourney V4 (Midjourney Style)
-  - Portrait V1 (People)
-  - Realistic V3
+  - FLUX (Latest - Best Quality)
+  - Turbo (Fast Generation)
+  - GPT Image
+  - Kontext (Image-to-Image transformations)
 
 - **Customization Options**:
-  - Multiple style presets (photographic, digital art, cinematic, etc.)
-  - Various image sizes (512x512 to 1536x1024)
+  - Multiple style presets (photographic, digital art, cinematic, steampunk, cyberpunk, neon, pixel art, and more)
+  - Various image sizes (512x512 to 1536x1024, including portrait and landscape options)
   - Quality settings (fast to maximum detail)
   - Adjustable creativity level
+  - Negative prompt support (specify what you don't want in the image)
+  - Seed control (random or fixed for reproducible results)
   - Prompt history with easy reuse
   - Settings persistence across sessions
   - Password length selection (16-100 characters)
@@ -51,31 +50,42 @@ python3 -m pip install -r requirements.txt
 
 ## Running the Application
 
-1. Start the Flask server:
+1. Create and activate a virtual environment (first time only):
 
 ```bash
-python3 app.py
+cd ask_ai
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
 ```
 
-2. Open your web browser and navigate to:
+2. Start the Flask server (after virtual environment is activated):
 
+```bash
+flask --app app run
 ```
-http://localhost:5000
-```
+
+The server will start at `http://127.0.0.1:5000`
+
+3. To stop the server, press `CTRL+C` in the terminal.
+
+**Note:** Make sure you're in the `ask_ai` directory and have the virtual environment activated before running Flask.
 
 ## Usage
 
 1. Enter a text prompt describing the image you want to generate
-2. (Optional) Click "Enhance" to improve your prompt using AI
-3. Choose your desired options:
+2. (Optional) Enter a negative prompt to specify what you don't want in the image
+3. (Optional) Click "Enhance" to improve your prompt using AI
+4. Choose your desired options:
    - Select an AI model
    - Choose an art style
    - Set image size
    - Adjust quality level
    - Set creativity level
-4. Click "Generate Image" to create your image
-5. Previous prompts are saved in the history for easy reuse
-6. **To generate a password:**
+   - Configure seed (random or fixed value for reproducible results)
+5. Click "Generate Image" to create your image
+6. Previous prompts are saved in the history for easy reuse
+7. **To generate a password:**
    - Go to `/password` or click the "Password Generator" link in the app.
    - By default, the generator uses random words for memorability.
    - Select the number of words (4–10) and one or more categories.

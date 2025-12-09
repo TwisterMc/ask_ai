@@ -6,5 +6,5 @@ API_CONFIG = {
     'TEXT_API': os.getenv('POLLINATIONS_TEXT_API', 'https://text.pollinations.ai/prompt/'),
     'DEFAULT_MODEL': 'SDXL',
     'DEFAULT_STEPS': 30,
-    'TIMEOUT': 30,
+    'TIMEOUT': 120,  # Increased from 30 to 120 seconds for image generation
 }
