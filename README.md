@@ -8,17 +8,17 @@ A web application that generates images using the Pollinations.AI API, featuring
 - **Prompt Enhancement**: Automatically enhance your prompts using AI
 - **Password Generator**: Create secure, customizable passwords using either random characters or memorable random words.
 - **Persistent Settings**: Automatically saves and restores your preferred settings
-- **Multiple AI Models**:
+- **Multiple AI Models** (sorted by cost):
 
-  - FLUX - Fast & High Quality (default)
-  - Turbo - Ultra-fast generation
-  - GPT Image 1 Mini - OpenAI's image model
-  - Kontext - Context-aware (supports image-to-image)
-  - NanoBanana - Gemini 2.5 Flash
-  - NanoBanana Pro - Gemini 3 Pro (4K, Thinking)
-  - Seedream 4.0 - ByteDance ARK
-  - Seedream Pro 4.5 - ByteDance ARK (4K, Multi-Image)
-  - Z-Image Turbo - Fast 6B parameter model
+  - **$** GPT Image 1 Mini - OpenAI's image model (cheapest, default)
+  - **$** NanoBanana - Gemini 2.5 Flash
+  - **$$** FLUX - Fast & High Quality
+  - **$$** NanoBanana Pro - Gemini 3 Pro (4K, Thinking)
+  - **$$** Z-Image Turbo - Fast 6B parameter model
+  - **$$** Turbo - Ultra-fast generation
+  - **$$$** Seedream 4.0 - ByteDance ARK
+  - **$$$$** Kontext - Context-aware (supports image-to-image)
+  - **$$$$** Seedream Pro 4.5 - ByteDance ARK (4K, Multi-Image)
 
 - **Customization Options**:
   - Multiple style presets (photographic, digital art, cinematic, steampunk, cyberpunk, neon, pixel art, and more)
