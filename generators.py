@@ -84,7 +84,27 @@ def generate_image_api(request):
         negative_prompt = data.get("negative_prompt", "")
         seed = data.get("seed", None)
         
+        # Model-specific size requirements
+        MODEL_MIN_SIZES = {
+            'gptimage': {'min_width': 1024, 'min_height': 1024, 'allowed': ['1024x1024', '1024x1536', '1536x1024']},
+            'seedream': {'min_pixels': 921600},  # minimum 1024x900
+            'seedream-pro': {'min_pixels': 921600},
+        }
+        
         width, height = map(int, size.split('x'))
+        
+        # Apply model-specific constraints
+        if model in MODEL_MIN_SIZES:
+            constraints = MODEL_MIN_SIZES[model]
+            # GPT Image has specific allowed sizes
+            if 'allowed' in constraints and size not in constraints['allowed']:
+                # Default to 1024x1024 for gptimage
+                width, height = 1024, 1024
+            # Seedream requires minimum pixel count
+            elif 'min_pixels' in constraints and (width * height) < constraints['min_pixels']:
+                # Default to 1024x1024 (meets minimum)
+                width, height = 1024, 1024
+        
         # Format the prompt with style for better API recognition
         complete_prompt = f"{prompt}, {style} style, high quality"
         encoded_prompt = quote(complete_prompt)

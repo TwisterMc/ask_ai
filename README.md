@@ -10,9 +10,15 @@ A web application that generates images using the Pollinations.AI API, featuring
 - **Persistent Settings**: Automatically saves and restores your preferred settings
 - **Multiple AI Models**:
 
-  - FLUX (Latest - Best Quality)
-  - Turbo (Fast Generation)
-  - GPT Image
+  - FLUX - Fast & High Quality (default)
+  - Turbo - Ultra-fast generation
+  - GPT Image 1 Mini - OpenAI's image model
+  - Kontext - Context-aware (supports image-to-image)
+  - NanoBanana - Gemini 2.5 Flash
+  - NanoBanana Pro - Gemini 3 Pro (4K, Thinking)
+  - Seedream 4.0 - ByteDance ARK
+  - Seedream Pro 4.5 - ByteDance ARK (4K, Multi-Image)
+  - Z-Image Turbo - Fast 6B parameter model
 
 - **Customization Options**:
   - Multiple style presets (photographic, digital art, cinematic, steampunk, cyberpunk, neon, pixel art, and more)
