@@ -1,10 +1,15 @@
 from flask import Flask, render_template, request, jsonify
 from urllib.parse import quote
 from generators import enhance_prompt_api, generate_image_api
-from dotenv import load_dotenv
+import os
 
-# Load environment variables from .env file
-load_dotenv()
+# Load environment variables from .env file (for local development)
+# On PythonAnywhere, env vars are set in WSGI file
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # dotenv not installed (OK on PythonAnywhere)
 
 # Initialize Flask app
 app = Flask(__name__)
