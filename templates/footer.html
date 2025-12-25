@@ -12,18 +12,18 @@
       >
       &nbsp;|&nbsp;
       <a href="/video" class="text-blue-600 hover:text-green-800 underline"
-        >Video Generator</a
+        >AI Video Generator</a
       >
       &nbsp;|&nbsp;
       <a href="/chat" class="text-blue-600 hover:text-green-800 underline"
-        >Chat</a
+        >AI Chat</a
       >
       &nbsp;|&nbsp;
       <a
         href="#"
         id="openSettings"
         class="text-blue-600 hover:text-green-800 underline"
-        >Settings</a
+        >AI Settings</a
       >
     </p>
     <p class="py-2">
@@ -68,17 +68,61 @@
   <div class="bg-white rounded-lg shadow-lg w-full max-w-lg p-6">
     <h3 class="text-lg font-semibold mb-2">Settings</h3>
     <p class="text-sm text-gray-600 mb-3">
-      You can provide your own Pollinations API key here. It will be stored in
-      your browser's local storage only and sent with requests from your browser
-      to this server so the server can forward it to the Pollinations API for
-      you.
+      Provide your Pollinations API key here. It will be stored locally in your
+      browser's storage only and used for requests from your browser.
     </p>
-    <label class="block text-sm text-gray-700">API Key</label>
-    <input
-      id="userApiKeyInput"
-      class="w-full border rounded px-2 py-1 mb-3"
-      placeholder="sk-..."
-    />
+
+    <label for="userApiKeyInput" class="block text-sm text-gray-700 mb-1"
+      >API Key</label
+    >
+    <div class="flex gap-2 items-center mb-1">
+      <input
+        id="userApiKeyInput"
+        type="password"
+        class="flex-1 border rounded px-2 py-1"
+        placeholder="sk-..."
+        aria-label="Pollinations API key"
+      />
+      <button
+        id="validateKey"
+        class="px-3 py-1 rounded bg-gray-100 border text-sm"
+      >
+        Validate
+      </button>
+      <button
+        id="clearKeyBtn"
+        class="px-3 py-1 rounded border text-sm text-red-600"
+      >
+        Clear
+      </button>
+    </div>
+    <div class="mb-3 flex items-center gap-2">
+      <div id="keyValidation" class="text-sm sr-only" aria-live="polite"></div>
+    </div>
+
+    <div
+      id="settingsStatus"
+      role="status"
+      aria-live="polite"
+      class="sr-only text-sm mt-2"
+    ></div>
+
+    <hr class="my-4" />
+    <h4 class="font-semibold mb-2">How to get an API key</h4>
+    <ol class="list-decimal list-inside text-sm text-gray-700 mb-3">
+      <li>
+        Sign in at
+        <a
+          href="https://pollinations.ai"
+          target="_blank"
+          rel="noopener"
+          class="text-blue-600 underline"
+          >pollinations.ai</a
+        >
+        and create or view your API key.
+      </li>
+    </ol>
+
     <div class="flex gap-2 justify-end">
       <button id="cancelSettings" class="px-3 py-2 rounded border">
         Cancel
@@ -90,44 +134,33 @@
         Save
       </button>
     </div>
-    <hr class="my-4" />
-    <h4 class="font-semibold mb-2">How to get an API key</h4>
-    <ol class="list-decimal list-inside text-sm text-gray-700">
-      <li>
-        Sign in at
-        <a
-          href="https://pollinations.ai"
-          target="_blank"
-          rel="noopener"
-          class="text-blue-600 underline"
-          >pollinations.ai</a
-        >.
-      </li>
-      <p class="text-sm text-gray-600 mb-3">You can provide your own Pollinations API key here. It will be stored in your browser's local storage only and sent with requests from your browser to this server so the server can forward it to the Pollinations API for you.</p>
-      <label class="block text-sm text-gray-700">API Key</label>
-      <div class="flex gap-2 items-center mb-3">
-        <input id="userApiKeyInput" type="password" class="flex-1 border rounded px-2 py-1" placeholder="sk-..." aria-label="Pollinations API key" />
-        <button id="validateKey" class="px-3 py-1 rounded bg-gray-100 border text-sm">Validate</button>
-        <button id="clearKeyBtn" class="px-3 py-1 rounded border text-sm text-red-600">Clear</button>
-      </div>
+  </div>
+
+  <script src="/static/js/settings.js"></script>
+
+  <!-- Shared accessible confirmation modal -->
+  <div
+    id="confirmModal"
+    class="fixed inset-0 hidden items-center justify-center bg-black bg-opacity-50 z-50"
+  >
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="confirmTitle"
+      class="bg-white rounded-lg shadow-lg w-full max-w-md p-6"
+    >
+      <h3 id="confirmTitle" class="text-lg font-semibold mb-2">Confirm</h3>
+      <p id="confirmMessage" class="text-sm text-gray-700 mb-4"></p>
       <div class="flex gap-2 justify-end">
-        <button id="cancelSettings" class="px-3 py-2 rounded border">Cancel</button>
-        <button id="saveSettings" class="px-3 py-2 rounded bg-blue-600 text-white">Save</button>
+        <button id="confirmCancel" class="px-3 py-2 rounded border">
+          Cancel
+        </button>
+        <button id="confirmOk" class="px-3 py-2 rounded bg-red-600 text-white">
+          Confirm
+        </button>
       </div>
-</div>
-
-<script src="/static/js/settings.js"></script>
-
-<!-- Shared accessible confirmation modal -->
-<div id="confirmModal" class="fixed inset-0 hidden items-center justify-center bg-black bg-opacity-50 z-50">
-  <div role="dialog" aria-modal="true" aria-labelledby="confirmTitle" class="bg-white rounded-lg shadow-lg w-full max-w-md p-6">
-    <h3 id="confirmTitle" class="text-lg font-semibold mb-2">Confirm</h3>
-    <p id="confirmMessage" class="text-sm text-gray-700 mb-4"></p>
-    <div class="flex gap-2 justify-end">
-      <button id="confirmCancel" class="px-3 py-2 rounded border">Cancel</button>
-      <button id="confirmOk" class="px-3 py-2 rounded bg-red-600 text-white">Confirm</button>
     </div>
   </div>
-</div>
 
-<script src="/static/js/confirm.js"></script>
+  <script src="/static/js/confirm.js"></script>
+</div>

@@ -8,6 +8,29 @@ document.addEventListener("DOMContentLoaded", () => {
   const clearBtn = document.getElementById("clearKeyBtn");
   const STORAGE_KEY = "ask_ai_user_api_key";
 
+  const statusEl = document.getElementById("settingsStatus");
+  const keyValidationEl = document.getElementById("keyValidation");
+
+  function showStatus(message, type = "info") {
+    if (!statusEl) return;
+    statusEl.textContent = message;
+    statusEl.className = "text-sm mt-2";
+    if (type === "success") statusEl.classList.add("text-green-700");
+    else if (type === "error") statusEl.classList.add("text-red-600");
+    else statusEl.classList.add("text-gray-700");
+    statusEl.classList.remove("sr-only");
+  }
+
+  function showInlineValidation(message, type = "info") {
+    if (!keyValidationEl) return;
+    keyValidationEl.textContent = message;
+    keyValidationEl.className = "text-sm";
+    if (type === "success") keyValidationEl.classList.add("text-green-700");
+    else if (type === "error") keyValidationEl.classList.add("text-red-600");
+    else keyValidationEl.classList.add("text-gray-700");
+    keyValidationEl.classList.remove("sr-only");
+  }
+
   function show() {
     modal.classList.remove("hidden");
     modal.classList.add("flex");
@@ -19,6 +42,29 @@ document.addEventListener("DOMContentLoaded", () => {
     modal.classList.remove("flex");
   }
 
+  // When hiding the modal, clear/hide any status or inline validation
+  // messages so they don't persist after close. Messages should remain
+  // visible while the modal is open until the user corrects them.
+  const clearMessages = () => {
+    try {
+      if (keyValidationEl) {
+        keyValidationEl.classList.add("sr-only");
+      }
+      if (statusEl) {
+        statusEl.classList.add("sr-only");
+      }
+    } catch (e) {
+      console.debug("Could not clear settings messages", e);
+    }
+  };
+
+  // update hide to clear messages on close
+  const _origHide = hide;
+  function hide() {
+    _origHide();
+    clearMessages();
+  }
+
   // load existing
   try {
     const existing = localStorage.getItem(STORAGE_KEY) || "";
@@ -26,6 +72,18 @@ document.addEventListener("DOMContentLoaded", () => {
   } catch (e) {
     console.debug("Could not read stored API key", e);
   }
+
+  // clear inline validation as user types (assumes user is attempting to
+  // correct the issue). Do not auto-clear the global status (which may
+  // contain higher-level information) unless explicitly validated.
+  if (input)
+    input.addEventListener("input", () => {
+      try {
+        if (keyValidationEl && input.value.trim() !== "") {
+          keyValidationEl.classList.add("sr-only");
+        }
+      } catch (e) {}
+    });
 
   if (openBtn)
     openBtn.addEventListener("click", (e) => {
@@ -49,10 +107,13 @@ document.addEventListener("DOMContentLoaded", () => {
           localStorage.removeItem(STORAGE_KEY);
         }
         hide();
-        alert("API key saved to local storage (only in this browser).");
+        showStatus(
+          "API key saved to local storage (this browser only).",
+          "success"
+        );
       } catch (err) {
         console.error("Failed to save API key", err);
-        alert("Failed to save API key to local storage.");
+        showStatus("Failed to save API key to local storage.", "error");
       }
     });
   if (clearBtn)
@@ -68,10 +129,12 @@ document.addEventListener("DOMContentLoaded", () => {
           try {
             localStorage.removeItem(STORAGE_KEY);
             input.value = "";
-            alert("API key removed from local storage.");
+            showStatus("API key removed from local storage.", "success");
+            showInlineValidation("Cleared", "success");
           } catch (err) {
             console.error("Failed to clear API key", err);
-            alert("Failed to clear API key.");
+            showStatus("Failed to clear API key.", "error");
+            showInlineValidation("Error", "error");
           }
         }
       } catch (err) {
@@ -84,7 +147,8 @@ document.addEventListener("DOMContentLoaded", () => {
       e.preventDefault();
       const key = input.value.trim();
       if (!key) {
-        alert("Enter an API key to validate");
+        showStatus("Enter an API key to validate", "error");
+        showInlineValidation("Required", "error");
         return;
       }
       try {
@@ -98,18 +162,25 @@ document.addEventListener("DOMContentLoaded", () => {
         });
         const data = await res.json();
         if (res.status === 200 && data.success) {
-          alert("API key validated successfully");
+          showStatus("API key validated successfully", "success");
+          showInlineValidation("Valid API key", "success");
         } else if (res.status === 403) {
-          alert(
-            "API key appears valid but has insufficient balance or is forbidden: " +
-              (data.error || "")
+          showStatus(
+            "API key appears valid but is forbidden or out of balance",
+            "error"
           );
+          showInlineValidation("Insufficient balance / forbidden", "error");
         } else {
-          alert("Validation failed: " + (data.error || `status ${res.status}`));
+          showStatus(
+            "Validation failed: " + (data.error || `status ${res.status}`),
+            "error"
+          );
+          showInlineValidation("Invalid", "error");
         }
       } catch (err) {
         console.error("Validation error", err);
-        alert("Validation request failed (network error)");
+        showStatus("Validation request failed (network error)", "error");
+        showInlineValidation("Network error", "error");
       }
     });
 
