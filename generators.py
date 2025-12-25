@@ -11,6 +11,100 @@ import re
 from requests.exceptions import Timeout, ConnectionError, RequestException
 
 
+def chat_api(request):
+    """Simple proxy for text/chat interactions. Accepts JSON { message, model, temperature, max_tokens }.
+    Sends a GET request to the configured TEXT_API endpoint with the encoded message and optional query params.
+    Returns JSON: { success: True, reply: "..." } or { success: False, error: "..." }.
+    """
+    try:
+        if not request.is_json:
+            return jsonify({"success": False, "error": "Request must be JSON"})
+        data = request.get_json(silent=True) or {}
+        message = data.get('message') or data.get('prompt') or ''
+        if not message:
+            return jsonify({"success": False, "error": "No message provided"})
+
+        model = data.get('model')
+        temperature = data.get('temperature')
+        max_tokens = data.get('max_tokens')
+
+        # prefer POST/JSON to support structured conversations
+        url = API_CONFIG['TEXT_API']
+        headers = {'Content-Type': 'application/json'}
+        if API_CONFIG.get('API_TOKEN'):
+            headers['Authorization'] = f"Bearer {API_CONFIG['API_TOKEN']}"
+
+        body = {}
+        # If client provided a messages array, forward it; otherwise wrap the single message
+        if isinstance(data.get('messages'), list) and data.get('messages'):
+            body['messages'] = data.get('messages')
+        else:
+            # simple one-shot message
+            body['messages'] = [{ 'role': 'user', 'content': message }]
+
+        if model:
+            body['model'] = model
+        if temperature is not None:
+            body['temperature'] = temperature
+        if max_tokens is not None:
+            body['max_tokens'] = max_tokens
+
+        try:
+            resp = requests.post(url, headers=headers, json=body, timeout=API_CONFIG.get('TIMEOUT', 30))
+        except Timeout:
+            return jsonify({"success": False, "error": "The chat service timed out. Please try again."})
+        except ConnectionError as e:
+            return jsonify({"success": False, "error": "Failed to connect to chat service."})
+        except RequestException as e:
+            return jsonify({"success": False, "error": f"Error communicating with chat service: {str(e)}"})
+
+        if resp.status_code != 200:
+            # surface 403 messages clearly and return 403 status
+            if resp.status_code == 403:
+                msg = _parse_api_error(resp)
+                return jsonify({"success": False, "error": f"API Error 403: {msg}"}), 403
+            return jsonify({"success": False, "error": f"Chat service returned status {resp.status_code}"}), resp.status_code
+
+        # attempt to parse JSON reply; otherwise use text
+        reply_text = None
+        try:
+            j = resp.json()
+            # common shapes: { reply: "..." } or { choices: [...] }
+            if isinstance(j, dict):
+                if 'reply' in j:
+                    reply_text = j['reply']
+                elif 'choices' in j and isinstance(j['choices'], list) and j['choices']:
+                    # could be chat completion style
+                    c = j['choices'][0]
+                    if isinstance(c, dict) and 'message' in c and isinstance(c['message'], dict):
+                        reply_text = c['message'].get('content') or c['message'].get('text')
+                    else:
+                        reply_text = str(c)
+                else:
+                    # fallback to full JSON string
+                    reply_text = j.get('text') or str(j)
+            else:
+                reply_text = str(j)
+        except Exception:
+            reply_text = resp.text or ''
+
+        # Include pricing info for the chosen model (best-effort)
+        pricing = get_model_pricing(model)
+        if isinstance(pricing, dict) and pricing.get('__api_forbidden'):
+            return jsonify({"success": False, "error": f"API Error 403: {pricing.get('message')}"}), 403
+
+        # If pricing is None, provide fallback per-token rates for chat models
+        if pricing is None:
+            fallback_chat_rates = {'gpt-3': 0.00005, 'gpt-4': 0.0002}
+            rate = fallback_chat_rates.get((model or '').lower())
+            if rate:
+                pricing = {'pollen_per_token': rate, 'currency': 'pollen'}
+
+        return jsonify({"success": True, "reply": reply_text, "pricing": pricing})
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Unexpected error: {str(e)}"})
+
+
 def get_model_pricing(model_name):
     """Fetch model pricing from the API (best-effort). Returns pricing dict or None."""
     try:
@@ -378,3 +472,47 @@ def estimate_price_api(request):
     except Exception as e:
         print(f"Error estimating price: {e}")
         return jsonify({"success": False, "error": f"Error estimating price: {str(e)}"})
+
+
+def estimate_chat_price_api(request):
+    try:
+        if not request.is_json:
+            return jsonify({"success": False, "error": "Request must be JSON"})
+        data = request.get_json(silent=True) or {}
+        model = data.get('model', API_CONFIG.get('DEFAULT_MODEL'))
+        max_tokens = data.get('max_tokens', None)
+
+        try:
+            tokens = int(max_tokens) if max_tokens is not None else None
+        except Exception:
+            tokens = None
+
+        pricing = get_model_pricing(model)
+        if isinstance(pricing, dict) and pricing.get('__api_forbidden'):
+            return jsonify({"success": False, "error": f"API Error 403: {pricing.get('message')}"}), 403
+
+        # compute estimate if possible
+        if pricing is None:
+            fallback_chat_rates = {'gpt-3': 0.00005, 'gpt-4': 0.0002}
+            rate = fallback_chat_rates.get((model or '').lower())
+            if rate and tokens is not None:
+                est = round(rate * tokens, 6)
+                pricing = {'pollen_per_token': rate, 'estimated_total': est, 'currency': 'pollen'}
+        else:
+            # If pricing contains a per-token rate, use it
+            if tokens is not None:
+                if 'pollen_per_token' in pricing:
+                    pricing['estimated_total'] = round(pricing['pollen_per_token'] * tokens, 6)
+                elif 'pollen_per_1k_tokens' in pricing:
+                    pricing['estimated_total'] = round(pricing['pollen_per_1k_tokens'] * (tokens / 1000.0), 6)
+                else:
+                    # sum numeric fields as a rough proxy scaled by tokens/1000
+                    nums = [v for v in pricing.values() if isinstance(v, (int, float))]
+                    if nums:
+                        base = round(sum(nums), 6)
+                        pricing['estimated_total'] = round(base * (tokens / 1000.0), 6)
+
+        return jsonify({"success": True, "pricing": pricing})
+    except Exception as e:
+        print(f"Error estimating chat price: {e}")
+        return jsonify({"success": False, "error": f"Error estimating chat price: {str(e)}"})

@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, jsonify
 from urllib.parse import quote
-from generators import enhance_prompt_api, generate_image_api, estimate_price_api
+from generators import enhance_prompt_api, generate_image_api, estimate_price_api, chat_api
+from generators import estimate_chat_price_api
 import os
 
 # Load environment variables from .env file (for local development)
@@ -66,5 +67,28 @@ def image_generator():
 def video_generator():
     return render_template("video.html")
 
+
+@app.route("/chat")
+def chat_page():
+    return render_template("chat.html")
+
+
+@app.route('/api/chat', methods=['POST'])
+def api_chat():
+    return chat_api(request)
+
+
+@app.route('/api/estimate_chat_price', methods=['POST'])
+def api_estimate_chat_price():
+    return estimate_chat_price_api(request)
+
 if __name__ == "__main__":
+    # Print available routes for debugging
+    try:
+        print("Registered routes:")
+        for rule in app.url_map.iter_rules():
+            methods = ','.join(sorted(rule.methods))
+            print(f"{rule.rule} -> {methods}")
+    except Exception as e:
+        print(f"Error listing routes: {e}")
     app.run(host='0.0.0.0', port=5000, debug=True)
