@@ -59,7 +59,8 @@ document.addEventListener("DOMContentLoaded", () => {
     div.appendChild(bubble);
     windowEl.appendChild(div);
     windowEl.scrollTop = windowEl.scrollHeight;
-    if (persist && (role === "user" || role === "assistant")) saveMessage(role, text);
+    if (persist && (role === "user" || role === "assistant"))
+      saveMessage(role, text);
   }
 
   tempEl.addEventListener("input", () => {
@@ -93,7 +94,9 @@ document.addEventListener("DOMContentLoaded", () => {
       // If upstream returned non-200 and Flask forwarded it, handle accordingly
       const data = await res.json();
       if (!data.success) {
-        placeholder.querySelector("div").textContent = `Error: ${data.error || "Unknown error"}`;
+        placeholder.querySelector("div").textContent = `Error: ${
+          data.error || "Unknown error"
+        }`;
       } else {
         placeholder.querySelector("div").textContent = data.reply || "";
         if (data.pricing) {
@@ -102,7 +105,8 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     } catch (err) {
       console.error(err);
-      placeholder.querySelector("div").textContent = "Network error contacting chat service.";
+      placeholder.querySelector("div").textContent =
+        "Network error contacting chat service.";
     }
   });
 
@@ -111,12 +115,15 @@ document.addEventListener("DOMContentLoaded", () => {
     if (window.confirm(warning)) {
       clearHistory();
       // also clear estimate display
-      estimateEl.textContent = '';
+      estimateEl.textContent = "";
     }
   });
 
   async function fetchChatEstimate() {
-    const body = { model: modelEl.value, max_tokens: parseInt(maxEl.value, 10) };
+    const body = {
+      model: modelEl.value,
+      max_tokens: parseInt(maxEl.value, 10),
+    };
     try {
       const res = await fetch("/api/estimate_chat_price", {
         method: "POST",
@@ -125,9 +132,13 @@ document.addEventListener("DOMContentLoaded", () => {
       });
       const data = await res.json();
       if (data.success && data.pricing) {
-        estimateEl.textContent = `Estimate: ${data.pricing.estimated_total || JSON.stringify(data.pricing)}`;
+        estimateEl.textContent = `Estimate: ${
+          data.pricing.estimated_total || JSON.stringify(data.pricing)
+        }`;
       } else {
-        estimateEl.textContent = data.error ? `Estimate error: ${data.error}` : "Estimate unavailable";
+        estimateEl.textContent = data.error
+          ? `Estimate error: ${data.error}`
+          : "Estimate unavailable";
       }
     } catch (e) {
       estimateEl.textContent = "Estimate unavailable (network error)";
