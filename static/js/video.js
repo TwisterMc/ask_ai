@@ -93,10 +93,10 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const headers = { "Content-Type": "application/json" };
       try {
-        const userKey = localStorage.getItem('ask_ai_user_api_key');
-        if (userKey) headers['Authorization'] = `Bearer ${userKey}`;
+        const userKey = localStorage.getItem("ask_ai_user_api_key");
+        if (userKey) headers["Authorization"] = `Bearer ${userKey}`;
       } catch (e) {
-        console.debug('No user API key in localStorage', e);
+        console.debug("No user API key in localStorage", e);
       }
       const res = await fetch("/generate", {
         method: "POST",
@@ -195,10 +195,10 @@ document.addEventListener("DOMContentLoaded", () => {
       if (typeof fps === "number") body.fps = fps;
       const headers = { "Content-Type": "application/json" };
       try {
-        const userKey = localStorage.getItem('ask_ai_user_api_key');
-        if (userKey) headers['Authorization'] = `Bearer ${userKey}`;
+        const userKey = localStorage.getItem("ask_ai_user_api_key");
+        if (userKey) headers["Authorization"] = `Bearer ${userKey}`;
       } catch (e) {
-        console.debug('No user API key in localStorage', e);
+        console.debug("No user API key in localStorage", e);
       }
       const res = await fetch("/api/estimate_price", {
         method: "POST",
