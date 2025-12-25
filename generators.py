@@ -31,7 +31,15 @@ def chat_api(request):
         # prefer POST/JSON to support structured conversations
         url = API_CONFIG['TEXT_API']
         headers = {'Content-Type': 'application/json'}
-        if API_CONFIG.get('API_TOKEN'):
+        # prefer an API key supplied by the browser (localStorage) forwarded in the Authorization header
+        incoming_auth = None
+        try:
+            incoming_auth = request.headers.get('Authorization')
+        except Exception:
+            incoming_auth = None
+        if incoming_auth:
+            headers['Authorization'] = incoming_auth
+        elif API_CONFIG.get('API_TOKEN'):
             headers['Authorization'] = f"Bearer {API_CONFIG['API_TOKEN']}"
 
         body = {}
@@ -89,7 +97,7 @@ def chat_api(request):
             reply_text = resp.text or ''
 
         # Include pricing info for the chosen model (best-effort)
-        pricing = get_model_pricing(model)
+        pricing = get_model_pricing(model, request)
         if isinstance(pricing, dict) and pricing.get('__api_forbidden'):
             return jsonify({"success": False, "error": f"API Error 403: {pricing.get('message')}"}), 403
 
@@ -105,12 +113,23 @@ def chat_api(request):
         return jsonify({"success": False, "error": f"Unexpected error: {str(e)}"})
 
 
-def get_model_pricing(model_name):
-    """Fetch model pricing from the API (best-effort). Returns pricing dict or None."""
+def get_model_pricing(model_name, request_obj=None):
+    """Fetch model pricing from the API (best-effort). Returns pricing dict or None.
+    If `request_obj` is provided, prefer an Authorization header from it (so user's API key can be forwarded).
+    """
     try:
         models_url = f"{API_CONFIG['IMAGE_API']}models"
         h = {}
-        if API_CONFIG['API_TOKEN']:
+        # prefer an Authorization header supplied in the incoming request (client-side API key)
+        incoming_auth = None
+        try:
+            if request_obj is not None:
+                incoming_auth = request_obj.headers.get('Authorization')
+        except Exception:
+            incoming_auth = None
+        if incoming_auth:
+            h['Authorization'] = incoming_auth
+        elif API_CONFIG.get('API_TOKEN'):
             h['Authorization'] = f"Bearer {API_CONFIG['API_TOKEN']}"
         r = requests.get(models_url, headers=h, timeout=10)
         # handle success
@@ -183,9 +202,16 @@ def enhance_prompt_api(request):
         
         print(f"Enhancement URL: {enhancement_url}")
         
-        # Prepare headers with Bearer token if available
+        # Prepare headers with Bearer token if available, prefer incoming Authorization header
         headers = {}
-        if API_CONFIG['API_TOKEN']:
+        incoming_auth = None
+        try:
+            incoming_auth = request.headers.get('Authorization')
+        except Exception:
+            incoming_auth = None
+        if incoming_auth:
+            headers['Authorization'] = incoming_auth
+        elif API_CONFIG.get('API_TOKEN'):
             headers['Authorization'] = f"Bearer {API_CONFIG['API_TOKEN']}"
         
         try:
@@ -311,11 +337,19 @@ def generate_image_api(request):
         print(f"Generated URL: {image_url}")
         print(f"Request timeout: {API_CONFIG['TIMEOUT']} seconds")
         
-        # Prepare headers with Bearer token if available
+        # Prepare headers with Bearer token if available, prefer incoming Authorization header
         headers = {}
-        if API_CONFIG['API_TOKEN']:
+        incoming_auth = None
+        try:
+            incoming_auth = request.headers.get('Authorization')
+        except Exception:
+            incoming_auth = None
+        if incoming_auth:
+            headers['Authorization'] = incoming_auth
+            print("Using Authorization header from incoming request")
+        elif API_CONFIG.get('API_TOKEN'):
             headers['Authorization'] = f"Bearer {API_CONFIG['API_TOKEN']}"
-            print("Using Bearer token authentication")
+            print("Using Bearer token authentication from server config")
         
         try:
             img_response = requests.get(image_url, headers=headers, timeout=API_CONFIG['TIMEOUT'])
@@ -349,7 +383,7 @@ def generate_image_api(request):
             content_type = img_response.headers.get('content-type', '').lower()
 
             # Helper: fetch model pricing (best-effort)
-            pricing = get_model_pricing(model)
+            pricing = get_model_pricing(model, request)
 
             # If pricing not available from API, provide fallback estimates for video models
             if pricing is None:
@@ -436,7 +470,7 @@ def estimate_price_api(request):
         except Exception:
             dur_val = None
 
-        pricing = get_model_pricing(model)
+            pricing = get_model_pricing(model, request)
 
         # If the pricing call returned a forbidden marker, surface that error
         if isinstance(pricing, dict) and pricing.get('__api_forbidden'):
@@ -487,7 +521,7 @@ def estimate_chat_price_api(request):
         except Exception:
             tokens = None
 
-        pricing = get_model_pricing(model)
+        pricing = get_model_pricing(model, request)
         if isinstance(pricing, dict) and pricing.get('__api_forbidden'):
             return jsonify({"success": False, "error": f"API Error 403: {pricing.get('message')}"}), 403
 

@@ -85,9 +85,16 @@ document.addEventListener("DOMContentLoaded", () => {
     const placeholder = windowEl.lastChild;
 
     try {
+      const headers = { "Content-Type": "application/json" };
+      try {
+        const userKey = localStorage.getItem('ask_ai_user_api_key');
+        if (userKey) headers['Authorization'] = `Bearer ${userKey}`;
+      } catch (e) {
+        console.debug('No user API key in localStorage', e);
+      }
       const res = await fetch("/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify(payload),
       });
 
@@ -125,9 +132,16 @@ document.addEventListener("DOMContentLoaded", () => {
       max_tokens: parseInt(maxEl.value, 10),
     };
     try {
+      const headers = { "Content-Type": "application/json" };
+      try {
+        const userKey = localStorage.getItem('ask_ai_user_api_key');
+        if (userKey) headers['Authorization'] = `Bearer ${userKey}`;
+      } catch (e) {
+        console.debug('No user API key in localStorage', e);
+      }
       const res = await fetch("/api/estimate_chat_price", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify(body),
       });
       const data = await res.json();

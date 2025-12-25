@@ -3,21 +3,15 @@
     <p class="py-2">
       <a href="/" class="text-blue-600 hover:text-green-800 underline">Home</a>
       &nbsp;|&nbsp;
-      <a href="/image" class="text-blue-600 hover:text-green-800 underline"
-        >AI Image Generator</a
-      >
+      <a href="/image" class="text-blue-600 hover:text-green-800 underline">AI Image Generator</a>
       &nbsp;|&nbsp;
-      <a href="/password" class="text-blue-600 hover:text-green-800 underline"
-        >Password Generator</a
-      >
+      <a href="/password" class="text-blue-600 hover:text-green-800 underline">Password Generator</a>
       &nbsp;|&nbsp;
-      <a href="/video" class="text-blue-600 hover:text-green-800 underline"
-        >Video Generator</a
-      >
+      <a href="/video" class="text-blue-600 hover:text-green-800 underline">Video Generator</a>
       &nbsp;|&nbsp;
-      <a href="/chat" class="text-blue-600 hover:text-green-800 underline"
-        >Chat</a
-      >
+      <a href="/chat" class="text-blue-600 hover:text-green-800 underline">Chat</a>
+      &nbsp;|&nbsp;
+      <a href="#" id="openSettings" class="text-blue-600 hover:text-green-800 underline">Settings</a>
     </p>
     <p class="py-2">
       Created by
@@ -52,3 +46,26 @@
     </p>
   </div>
 </footer>
+ 
+<!-- Settings modal (saved to localStorage only) -->
+<div id="settingsModal" class="fixed inset-0 hidden items-center justify-center bg-black bg-opacity-50 z-50">
+  <div class="bg-white rounded-lg shadow-lg w-full max-w-lg p-6">
+    <h3 class="text-lg font-semibold mb-2">Settings</h3>
+    <p class="text-sm text-gray-600 mb-3">You can provide your own Pollinations API key here. It will be stored in your browser's local storage only and sent with requests from your browser to this server so the server can forward it to the Pollinations API for you.</p>
+    <label class="block text-sm text-gray-700">API Key</label>
+    <input id="userApiKeyInput" class="w-full border rounded px-2 py-1 mb-3" placeholder="sk-..." />
+    <div class="flex gap-2 justify-end">
+      <button id="cancelSettings" class="px-3 py-2 rounded border">Cancel</button>
+      <button id="saveSettings" class="px-3 py-2 rounded bg-blue-600 text-white">Save</button>
+    </div>
+    <hr class="my-4" />
+    <h4 class="font-semibold mb-2">How to get an API key</h4>
+    <ol class="list-decimal list-inside text-sm text-gray-700">
+      <li>Sign in at <a href="https://pollinations.ai" target="_blank" rel="noopener" class="text-blue-600 underline">pollinations.ai</a>.</li>
+      <li>Open your account or API settings and create a new API token.</li>
+      <li>Copy the token and paste it into the API Key field above, then click <strong>Save</strong>.</li>
+    </ol>
+  </div>
+</div>
+
+<script src="/static/js/settings.js"></script>

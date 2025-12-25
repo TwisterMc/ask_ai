@@ -287,11 +287,16 @@ async function generateImage() {
     console.log("Sending request with style:", style);
     console.log("Full request body:", requestBody);
 
+    const headers = { "Content-Type": "application/json" };
+    try {
+      const userKey = localStorage.getItem('ask_ai_user_api_key');
+      if (userKey) headers['Authorization'] = `Bearer ${userKey}`;
+    } catch (e) {
+      console.debug('No user API key in localStorage', e);
+    }
     const response = await fetch("/generate", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers,
       body: JSON.stringify(requestBody),
     });
 
@@ -342,12 +347,17 @@ async function enhancePrompt() {
   document.body.classList.add("overflow-hidden");
   setFormControlsDisabled(true);
 
-  try {
+    try {
+    const headers = { "Content-Type": "application/json" };
+    try {
+      const userKey = localStorage.getItem('ask_ai_user_api_key');
+      if (userKey) headers['Authorization'] = `Bearer ${userKey}`;
+    } catch (e) {
+      console.debug('No user API key in localStorage', e);
+    }
     const response = await fetch("/enhance_prompt", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers,
       body: JSON.stringify({ prompt: originalPrompt }),
     });
 

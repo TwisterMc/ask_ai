@@ -91,9 +91,16 @@ document.addEventListener("DOMContentLoaded", () => {
     status.textContent = "Requesting generation — this may take a while.";
 
     try {
+      const headers = { "Content-Type": "application/json" };
+      try {
+        const userKey = localStorage.getItem('ask_ai_user_api_key');
+        if (userKey) headers['Authorization'] = `Bearer ${userKey}`;
+      } catch (e) {
+        console.debug('No user API key in localStorage', e);
+      }
       const res = await fetch("/generate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify(payload),
       });
 
@@ -186,9 +193,16 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const body = { model: model, duration: duration, size: size };
       if (typeof fps === "number") body.fps = fps;
+      const headers = { "Content-Type": "application/json" };
+      try {
+        const userKey = localStorage.getItem('ask_ai_user_api_key');
+        if (userKey) headers['Authorization'] = `Bearer ${userKey}`;
+      } catch (e) {
+        console.debug('No user API key in localStorage', e);
+      }
       const res = await fetch("/api/estimate_price", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify(body),
       });
       const data = await res.json();
