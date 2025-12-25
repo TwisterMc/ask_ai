@@ -8,7 +8,12 @@ from PIL import Image
 from urllib.parse import quote
 from config import API_CONFIG
 import re
+import time
 from requests.exceptions import Timeout, ConnectionError, RequestException
+
+# simple in-memory cache for model pricing: { model_key: (timestamp, value) }
+_PRICING_CACHE = {}
+_PRICING_CACHE_TTL = 60  # seconds
 
 
 def chat_api(request):
@@ -113,6 +118,34 @@ def chat_api(request):
         return jsonify({"success": False, "error": f"Unexpected error: {str(e)}"})
 
 
+def validate_api_key(request):
+    """Validate an API key by calling the models endpoint with provided Authorization header.
+    Expects an Authorization header to be forwarded by the client. Returns 200/403 with parsed message.
+    """
+    try:
+        models_url = f"{API_CONFIG['IMAGE_API']}models"
+        headers = {}
+        try:
+            incoming_auth = request.headers.get('Authorization')
+        except Exception:
+            incoming_auth = None
+        if incoming_auth:
+            headers['Authorization'] = incoming_auth
+        elif API_CONFIG.get('API_TOKEN'):
+            headers['Authorization'] = f"Bearer {API_CONFIG['API_TOKEN']}"
+
+        r = requests.get(models_url, headers=headers, timeout=10)
+        if r.status_code == 200:
+            return jsonify({"success": True, "message": "Key valid (models fetched)"})
+        elif r.status_code == 403:
+            msg = _parse_api_error(r)
+            return jsonify({"success": False, "error": msg}), 403
+        else:
+            return jsonify({"success": False, "error": f"Validation failed: status {r.status_code}"}), r.status_code
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Validation error: {str(e)}"})
+
+
 def get_model_pricing(model_name, request_obj=None):
     """Fetch model pricing from the API (best-effort). Returns pricing dict or None.
     If `request_obj` is provided, prefer an Authorization header from it (so user's API key can be forwarded).
@@ -131,6 +164,13 @@ def get_model_pricing(model_name, request_obj=None):
             h['Authorization'] = incoming_auth
         elif API_CONFIG.get('API_TOKEN'):
             h['Authorization'] = f"Bearer {API_CONFIG['API_TOKEN']}"
+        # use a cached value when available
+        cache_key = f"models::{model_name}"
+        now = time.time()
+        cached = _PRICING_CACHE.get(cache_key)
+        if cached and (now - cached[0]) < _PRICING_CACHE_TTL:
+            return cached[1]
+
         r = requests.get(models_url, headers=h, timeout=10)
         # handle success
         if r.status_code == 200:
@@ -139,7 +179,9 @@ def get_model_pricing(model_name, request_obj=None):
                 name = it.get('name', '')
                 aliases = it.get('aliases', []) or []
                 if model_name == name or model_name in aliases:
-                    return it.get('pricing')
+                    pricing = it.get('pricing')
+                    _PRICING_CACHE[cache_key] = (now, pricing)
+                    return pricing
         # handle forbidden / insufficient balance explicitly
         if r.status_code == 403:
             try:
@@ -200,7 +242,7 @@ def enhance_prompt_api(request):
         if host and not host.startswith('127.0.0.1') and not host.startswith('localhost'):
             enhancement_url += f"?referrer={host}"
         
-        print(f"Enhancement URL: {enhancement_url}")
+        # Request is being made to enhancement API (URL redacted in logs)
         
         # Prepare headers with Bearer token if available, prefer incoming Authorization header
         headers = {}
@@ -334,8 +376,8 @@ def generate_image_api(request):
             if audio:
                 image_url += "&audio=true"
         
-        print(f"Generated URL: {image_url}")
-        print(f"Request timeout: {API_CONFIG['TIMEOUT']} seconds")
+        # Generation request initiated (URL redacted to avoid leaking sensitive params)
+        print(f"Generation request initiated. timeout: {API_CONFIG['TIMEOUT']} seconds")
         
         # Prepare headers with Bearer token if available, prefer incoming Authorization header
         headers = {}
@@ -346,10 +388,8 @@ def generate_image_api(request):
             incoming_auth = None
         if incoming_auth:
             headers['Authorization'] = incoming_auth
-            print("Using Authorization header from incoming request")
         elif API_CONFIG.get('API_TOKEN'):
             headers['Authorization'] = f"Bearer {API_CONFIG['API_TOKEN']}"
-            print("Using Bearer token authentication from server config")
         
         try:
             img_response = requests.get(image_url, headers=headers, timeout=API_CONFIG['TIMEOUT'])
@@ -436,6 +476,12 @@ def generate_image_api(request):
                 # Build external URL
                 host_url = request.host_url.rstrip('/')
                 video_url = f"{host_url}/static/generated_videos/{filename}"
+
+                # cleanup old videos asynchronously (best-effort): remove files older than 7 days
+                try:
+                    cleanup_old_videos(videos_dir, max_age_days=7)
+                except Exception:
+                    pass
 
                 return jsonify({"success": True, "url": video_url, "type": "video", "pricing": pricing})
 
@@ -550,3 +596,20 @@ def estimate_chat_price_api(request):
     except Exception as e:
         print(f"Error estimating chat price: {e}")
         return jsonify({"success": False, "error": f"Error estimating chat price: {str(e)}"})
+
+
+def cleanup_old_videos(dirpath, max_age_days=7):
+    """Remove files in `dirpath` older than `max_age_days`. Best-effort, no exceptions leaked."""
+    try:
+        cutoff = time.time() - (max_age_days * 86400)
+        for fname in os.listdir(dirpath):
+            fpath = os.path.join(dirpath, fname)
+            try:
+                if os.path.isfile(fpath):
+                    mtime = os.path.getmtime(fpath)
+                    if mtime < cutoff:
+                        os.remove(fpath)
+            except Exception:
+                continue
+    except Exception:
+        pass

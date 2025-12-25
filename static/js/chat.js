@@ -117,12 +117,19 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  clearBtn.addEventListener("click", () => {
-    const warning = `This will permanently remove your local conversation history stored in your browser (key: ${STORAGE_KEY}).\n\nThis cannot be undone. Do you want to continue?`;
-    if (window.confirm(warning)) {
-      clearHistory();
-      // also clear estimate display
-      estimateEl.textContent = "";
+  clearBtn.addEventListener("click", async () => {
+    const warning = `This will permanently remove your local conversation history stored in your browser (key: ${STORAGE_KEY}).\n\nThis cannot be undone.`;
+    try {
+      const ok = window.confirmModal
+        ? await window.confirmModal.show(warning)
+        : confirm(warning);
+      if (ok) {
+        clearHistory();
+        // also clear estimate display
+        estimateEl.textContent = "";
+      }
+    } catch (err) {
+      console.error("Confirm modal error", err);
     }
   });
 
