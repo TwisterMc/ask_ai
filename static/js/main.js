@@ -68,6 +68,72 @@ document.addEventListener("DOMContentLoaded", () => {
   // Load saved settings and set up listeners
   loadFormSettings();
   updateHistoryDisplay();
+
+  // set up dynamic image estimate fetching (if imageEstimate element exists)
+  const imageEstimateEl = document.getElementById("imageEstimate");
+  if (imageEstimateEl) {
+    async function fetchImageEstimate() {
+      try {
+        const model = document.getElementById("model").value;
+        const size = document.getElementById("size").value;
+        const quality = document.getElementById("quality").value;
+        const guidance = document.getElementById("guidance").value;
+
+        const body = { model, size, quality, guidance };
+        const headers = { "Content-Type": "application/json" };
+        try {
+          const userKey = localStorage.getItem("ask_ai_user_api_key");
+          if (userKey) headers["Authorization"] = `Bearer ${userKey}`;
+        } catch (e) {}
+        const res = await fetch("/api/estimate_price", {
+          method: "POST",
+          headers,
+          body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        if (data && data.success && data.pricing) {
+          const p = data.pricing;
+          let friendly = null;
+          if (p.estimate_text) {
+            friendly = p.estimate_text.replace(/^\s*Estimated:\s*/i, "");
+          } else if (
+            typeof p.estimated_total !== "undefined" &&
+            p.estimated_total !== null
+          ) {
+            friendly = `${p.estimated_total} ${p.currency || ""}`.trim();
+          } else {
+            const keys = [
+              "completionImageTokens",
+              "promptImageTokens",
+              "promptTextTokens",
+              "promptTokens",
+              "completionTokens",
+            ];
+            const parts = [];
+            keys.forEach((k) => {
+              if (p[k] !== undefined)
+                parts.push(`${k.replace(/([A-Z])/g, " $1")}: ${p[k]}`);
+            });
+            friendly = parts.length ? parts.join(", ") : JSON.stringify(p);
+          }
+          imageEstimateEl.textContent = `Spore Estimate: ${friendly}`;
+        } else if (data && data.error) {
+          imageEstimateEl.textContent = `Spore Estimate: unavailable (${data.error})`;
+        } else {
+          imageEstimateEl.textContent = "Spore Estimate: unknown";
+        }
+      } catch (err) {
+        imageEstimateEl.textContent = "Spore Estimate: unknown (network)";
+      }
+    }
+
+    ["model", "size", "quality", "guidance"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener("change", fetchImageEstimate);
+    });
+    // initial estimate
+    fetchImageEstimate();
+  }
 });
 
 /**

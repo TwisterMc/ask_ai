@@ -146,6 +146,7 @@ def validate_api_key(request):
         return jsonify({"success": False, "error": f"Validation error: {str(e)}"})
 
 
+
 def get_model_pricing(model_name, request_obj=None):
     """Fetch model pricing from the API (best-effort). Returns pricing dict or None.
     If `request_obj` is provided, prefer an Authorization header from it (so user's API key can be forwarded).
@@ -509,6 +510,8 @@ def estimate_price_api(request):
         model = data.get('model', API_CONFIG.get('DEFAULT_MODEL'))
         duration = data.get('duration', None)
         size = data.get('size', None)
+        quality = data.get('quality', None)
+        guidance = data.get('guidance', None)
 
         # normalize duration
         try:
@@ -516,7 +519,7 @@ def estimate_price_api(request):
         except Exception:
             dur_val = None
 
-            pricing = get_model_pricing(model, request)
+        pricing = get_model_pricing(model, request)
 
         # If the pricing call returned a forbidden marker, surface that error
         if isinstance(pricing, dict) and pricing.get('__api_forbidden'):
@@ -547,6 +550,46 @@ def estimate_price_api(request):
                             pricing['estimate_text'] = f"Estimated: {pricing['estimated_total']} {pricing.get('currency','pollen')}"
             except Exception:
                 pass
+
+        # Apply multipliers based on size, quality, and guidance to make estimates reflect settings
+        try:
+            multiplier = 1.0
+            # size multiplier: scale by pixel area relative to 1024x1024
+            if size and isinstance(size, str) and 'x' in size:
+                try:
+                    w, h = map(int, size.split('x'))
+                    base_area = 1024 * 1024
+                    multiplier *= (w * h) / float(base_area)
+                except Exception:
+                    pass
+
+            # quality multiplier: map quality names to nominal step counts
+            if quality and isinstance(quality, str):
+                qmap = {'fast': 20, 'balanced': 30, 'detailed': 50, 'maximum': 75}
+                steps = qmap.get(quality.lower())
+                if steps:
+                    multiplier *= (steps / 30.0)
+
+            # guidance multiplier: scale linearly relative to 7.0 baseline
+            try:
+                g = float(guidance) if guidance is not None else None
+                if g is not None:
+                    baseline = 7.0
+                    if baseline > 0:
+                        multiplier *= (g / baseline)
+            except Exception:
+                pass
+
+            if isinstance(pricing, dict) and pricing.get('estimated_total') is not None:
+                est = float(pricing.get('estimated_total'))
+                adjusted = round(est * multiplier, 6)
+                pricing['estimated_total'] = adjusted
+                pricing['estimate_text'] = f"Estimated: {adjusted} {pricing.get('currency','pollen')}"
+            else:
+                # attempt to adjust numeric fields if any
+                nums = [k for k, v in (pricing.items() if isinstance(pricing, dict) else []) if isinstance(pricing.get(k), (int, float))]
+        except Exception:
+            pass
 
         return jsonify({"success": True, "pricing": pricing})
     except Exception as e:

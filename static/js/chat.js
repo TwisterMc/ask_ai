@@ -107,7 +107,31 @@ document.addEventListener("DOMContentLoaded", () => {
       } else {
         placeholder.querySelector("div").textContent = data.reply || "";
         if (data.pricing) {
-          estimateEl.textContent = `Pricing: ${JSON.stringify(data.pricing)}`;
+          const p = data.pricing;
+          let friendly = null;
+          if (p.estimate_text) {
+            friendly = p.estimate_text.replace(/^\s*Estimated:\s*/i, "");
+          } else if (
+            typeof p.estimated_total !== "undefined" &&
+            p.estimated_total !== null
+          ) {
+            friendly = `${p.estimated_total} ${p.currency || ""}`.trim();
+          } else {
+            const keys = [
+              "completionImageTokens",
+              "promptImageTokens",
+              "promptTextTokens",
+              "promptTokens",
+              "completionTokens",
+            ];
+            const parts = [];
+            keys.forEach((k) => {
+              if (p[k] !== undefined)
+                parts.push(`${k.replace(/([A-Z])/g, " $1")}: ${p[k]}`);
+            });
+            friendly = parts.length ? parts.join(", ") : JSON.stringify(p);
+          }
+          estimateEl.textContent = `Spore Estimate: ${friendly}`;
         }
       }
     } catch (err) {
@@ -153,9 +177,30 @@ document.addEventListener("DOMContentLoaded", () => {
       });
       const data = await res.json();
       if (data.success && data.pricing) {
-        estimateEl.textContent = `Estimate: ${
-          data.pricing.estimated_total || JSON.stringify(data.pricing)
-        }`;
+        const p = data.pricing;
+        let friendly = null;
+        if (p.estimate_text) {
+          friendly = p.estimate_text.replace(/^\s*Estimated:\s*/i, "");
+        } else if (
+          typeof p.estimated_total !== "undefined" &&
+          p.estimated_total !== null
+        ) {
+          friendly = `${p.estimated_total} ${p.currency || ""}`.trim();
+        } else {
+          const keys = [
+            "pollen_per_token",
+            "pollen_per_1k_tokens",
+            "completionTokens",
+            "promptTokens",
+          ];
+          const parts = [];
+          keys.forEach((k) => {
+            if (p[k] !== undefined)
+              parts.push(`${k.replace(/([A-Z_])/g, " $1")}: ${p[k]}`);
+          });
+          friendly = parts.length ? parts.join(", ") : JSON.stringify(p);
+        }
+        estimateEl.textContent = `Spore Estimate: ${friendly}`;
       } else {
         estimateEl.textContent = data.error
           ? `Estimate error: ${data.error}`
@@ -164,6 +209,7 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (e) {
       estimateEl.textContent = "Estimate unavailable (network error)";
     }
+    // keep estimate and balance independent; balance auto-refresh runs separately
   }
 
   modelEl.addEventListener("change", fetchChatEstimate);

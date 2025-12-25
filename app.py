@@ -88,6 +88,9 @@ def api_estimate_chat_price():
 def api_validate_key():
     return validate_api_key(request)
 
+
+
+
 if __name__ == "__main__":
     # Print available routes for debugging
     try:

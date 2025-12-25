@@ -131,46 +131,41 @@ document.addEventListener("DOMContentLoaded", () => {
         if (data.pricing) {
           const p = document.createElement("div");
           p.className = "mt-2 text-sm text-gray-700";
-          // Format pricing object into readable text
           try {
             const pricing = data.pricing;
-            let text = "";
-            if (typeof pricing === "object" && !Array.isArray(pricing)) {
-              // pricing might be { "property": value, "currency": "pollen" }
-              const parts = [];
-              const currency = pricing.currency || "pollen";
-              for (const k of Object.keys(pricing)) {
-                if (k === "currency") continue;
-                parts.push(`${k}: ${pricing[k]} ${currency}`);
-              }
-              // attempt a simple numeric summary
-              const numericVals = Object.values(pricing).filter(
-                (v) => typeof v === "number"
-              );
-              if (numericVals.length) {
-                const sum = numericVals.reduce((a, b) => a + b, 0);
-                parts.push(
-                  `estimated total: ${sum} ${pricing.currency || "pollen"}`
+            let friendly = null;
+            if (pricing && typeof pricing === "object") {
+              if (pricing.estimate_text) {
+                friendly = pricing.estimate_text
+                  .replace(/^\s*Estimated:\s*/i, "")
+                  .replace(/pollen/gi, "spores");
+              } else if (
+                typeof pricing.estimated_total !== "undefined" &&
+                pricing.estimated_total !== null
+              ) {
+                const unit =
+                  (pricing.currency || "pollen").toLowerCase() === "pollen"
+                    ? "spores"
+                    : pricing.currency || "";
+                friendly = `${pricing.estimated_total} ${unit}`.trim();
+              } else {
+                const parts = [];
+                const numericVals = Object.entries(pricing).filter(
+                  ([k, v]) => typeof v === "number"
                 );
-              }
-              text = parts.join(" · ");
-              // If parts empty, show a helpful fallback message
-              if (!text) {
-                if (pricing.estimated_total) {
-                  text = `Estimated total: ${pricing.estimated_total} ${
-                    pricing.currency || "pollen"
-                  }`;
+                numericVals.forEach(([k, v]) => parts.push(`${k}: ${v}`));
+                if (parts.length) {
+                  friendly = parts.join(" · ");
                 } else {
-                  text =
-                    "Pricing unavailable — check POLLINATIONS_API_TOKEN or connectivity";
+                  friendly = "Pricing unavailable";
                 }
               }
             } else {
-              text = JSON.stringify(pricing);
+              friendly = JSON.stringify(pricing);
             }
-            p.textContent = "Pricing: " + text;
+            p.textContent = "Spore Estimate: " + friendly;
           } catch (e) {
-            p.textContent = "Pricing: " + JSON.stringify(data.pricing);
+            p.textContent = "Spore Estimate: " + JSON.stringify(data.pricing);
           }
           result.appendChild(p);
         }
@@ -209,11 +204,13 @@ document.addEventListener("DOMContentLoaded", () => {
       if (data.success && data.pricing) {
         const p = data.pricing;
         if (p.estimate_text) {
-          status.textContent = p.estimate_text;
+          status.textContent = p.estimate_text.replace(/pollen/gi, "spores");
         } else if (p.estimated_total) {
-          status.textContent = `Estimated: ${p.estimated_total} ${
-            p.currency || "pollen"
-          }`;
+          const unit =
+            (p.currency || "pollen").toLowerCase() === "pollen"
+              ? "spores"
+              : p.currency || "";
+          status.textContent = `Spore Estimate: ${p.estimated_total} ${unit}`;
         } else {
           status.textContent =
             "Pricing unavailable — check POLLINATIONS_API_TOKEN or connectivity";
