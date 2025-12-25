@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, jsonify
 from urllib.parse import quote
-from generators import enhance_prompt_api, generate_image_api
+from generators import enhance_prompt_api, generate_image_api, estimate_price_api
 import os
 
 # Load environment variables from .env file (for local development)
@@ -29,6 +29,11 @@ def home():
 def generate_image():
     return generate_image_api(request)
 
+
+@app.route('/api/estimate_price', methods=['POST'])
+def estimate_price():
+    return estimate_price_api(request)
+
 @app.route("/about")
 def about():
     return render_template("about.html")
@@ -56,6 +61,10 @@ def api_generate_password():
 @app.route("/image")
 def image_generator():
     return render_template("index.html")
+
+@app.route("/video")
+def video_generator():
+    return render_template("video.html")
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000, debug=True)
