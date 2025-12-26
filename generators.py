@@ -25,8 +25,11 @@ def chat_api(request):
         if not request.is_json:
             return jsonify({"success": False, "error": "Request must be JSON"})
         data = request.get_json(silent=True) or {}
+        # Accept either a single `message`/`prompt` or a `messages` array (chat style).
         message = data.get('message') or data.get('prompt') or ''
-        if not message:
+        messages = data.get('messages')
+        has_messages = isinstance(messages, list) and len(messages) > 0
+        if not message and not has_messages:
             return jsonify({"success": False, "error": "No message provided"})
 
         model = data.get('model')
@@ -47,23 +50,33 @@ def chat_api(request):
         elif API_CONFIG.get('API_TOKEN'):
             headers['Authorization'] = f"Bearer {API_CONFIG['API_TOKEN']}"
 
-        body = {}
-        # If client provided a messages array, forward it; otherwise wrap the single message
-        if isinstance(data.get('messages'), list) and data.get('messages'):
-            body['messages'] = data.get('messages')
+        # The upstream text API expects a GET request with the encoded prompt
+        # appended to the base TEXT_API URL (same as enhance_prompt_api).
+        # If the client provided a `messages` array, concatenate message contents.
+        messages = data.get('messages')
+        if isinstance(messages, list) and messages:
+            # join message contents in order, preferring user/assistant content
+            parts = []
+            for m in messages:
+                if isinstance(m, dict):
+                    c = m.get('content') or m.get('text') or ''
+                    if c:
+                        parts.append(str(c))
+            combined = '\n'.join(parts)
         else:
-            # simple one-shot message
-            body['messages'] = [{ 'role': 'user', 'content': message }]
+            combined = message
 
-        if model:
-            body['model'] = model
-        if temperature is not None:
-            body['temperature'] = temperature
-        if max_tokens is not None:
-            body['max_tokens'] = max_tokens
+        encoded = quote(combined)
+        request_url = f"{API_CONFIG['TEXT_API']}{encoded}"
+
+        # Add referrer if not localhost (API doesn't accept IP addresses as referrer)
+        host = request.host or API_CONFIG['REFERRER']
+        if host and not host.startswith('127.0.0.1') and not host.startswith('localhost'):
+            request_url += f"?referrer={host}"
 
         try:
-            resp = requests.post(url, headers=headers, json=body, timeout=API_CONFIG.get('TIMEOUT', 30))
+            print(f"Chat request_url: {request_url}")
+            resp = requests.get(request_url, headers=headers, timeout=API_CONFIG.get('TIMEOUT', 30))
         except Timeout:
             return jsonify({"success": False, "error": "The chat service timed out. Please try again."})
         except ConnectionError as e:

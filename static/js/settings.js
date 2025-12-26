@@ -37,10 +37,11 @@ document.addEventListener("DOMContentLoaded", () => {
     input.focus();
   }
 
-  function hide() {
+  // basic hide implementation used internally
+  const hideOriginal = () => {
     modal.classList.add("hidden");
     modal.classList.remove("flex");
-  }
+  };
 
   // When hiding the modal, clear/hide any status or inline validation
   // messages so they don't persist after close. Messages should remain
@@ -59,15 +60,24 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   // update hide to clear messages on close
-  const _origHide = hide;
   function hide() {
-    _origHide();
+    hideOriginal();
     clearMessages();
   }
 
   // load existing
   try {
-    const existing = localStorage.getItem(STORAGE_KEY) || "";
+    let existing = "";
+    try {
+      existing = localStorage.getItem(STORAGE_KEY) || "";
+    } catch (e) {
+      // localStorage may be unavailable (private mode / blocked). Try sessionStorage.
+      try {
+        existing = sessionStorage.getItem(STORAGE_KEY) || "";
+      } catch (e2) {
+        console.debug("Could not read stored API key from storage", e, e2);
+      }
+    }
     input.value = existing;
   } catch (e) {
     console.debug("Could not read stored API key", e);
@@ -102,18 +112,46 @@ document.addEventListener("DOMContentLoaded", () => {
       try {
         const val = input.value.trim();
         if (val) {
-          localStorage.setItem(STORAGE_KEY, val);
+          try {
+            localStorage.setItem(STORAGE_KEY, val);
+            showStatus(
+              "API key saved to local storage (this browser only).",
+              "success"
+            );
+          } catch (errStorage) {
+            // fallback to sessionStorage if localStorage is unavailable
+            try {
+              sessionStorage.setItem(STORAGE_KEY, val);
+              showStatus(
+                "API key saved to session storage (cleared when browser closed).",
+                "success"
+              );
+            } catch (errSession) {
+              console.error(
+                "Failed to save API key to storage",
+                errStorage,
+                errSession
+              );
+              showStatus(
+                "Failed to save API key to storage — check browser privacy/settings.",
+                "error"
+              );
+              return;
+            }
+          }
         } else {
-          localStorage.removeItem(STORAGE_KEY);
+          try {
+            localStorage.removeItem(STORAGE_KEY);
+          } catch (e) {}
+          try {
+            sessionStorage.removeItem(STORAGE_KEY);
+          } catch (e) {}
+          showStatus("API key removed from storage.", "success");
         }
         hide();
-        showStatus(
-          "API key saved to local storage (this browser only).",
-          "success"
-        );
       } catch (err) {
         console.error("Failed to save API key", err);
-        showStatus("Failed to save API key to local storage.", "error");
+        showStatus("Failed to save API key — unexpected error.", "error");
       }
     });
   if (clearBtn)
@@ -127,9 +165,14 @@ document.addEventListener("DOMContentLoaded", () => {
           : confirm(msg);
         if (ok) {
           try {
-            localStorage.removeItem(STORAGE_KEY);
+            try {
+              localStorage.removeItem(STORAGE_KEY);
+            } catch (e) {}
+            try {
+              sessionStorage.removeItem(STORAGE_KEY);
+            } catch (e) {}
             input.value = "";
-            showStatus("API key removed from local storage.", "success");
+            showStatus("API key removed from storage.", "success");
             showInlineValidation("Cleared", "success");
           } catch (err) {
             console.error("Failed to clear API key", err);
