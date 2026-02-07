@@ -6,6 +6,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const input = document.getElementById("userApiKeyInput");
   const validateBtn = document.getElementById("validateKey");
   const clearBtn = document.getElementById("clearKeyBtn");
+  const checkBalanceBtn = document.getElementById("checkBalanceBtn");
+  const balanceDisplay = document.getElementById("balanceDisplay");
   const STORAGE_KEY = "ask_ai_user_api_key";
 
   const statusEl = document.getElementById("settingsStatus");
@@ -54,6 +56,10 @@ document.addEventListener("DOMContentLoaded", () => {
       if (statusEl) {
         statusEl.classList.add("sr-only");
       }
+      if (balanceDisplay) {
+        balanceDisplay.textContent = "";
+        balanceDisplay.className = "mt-2 text-sm";
+      }
     } catch (e) {
       console.debug("Could not clear settings messages", e);
     }
@@ -86,14 +92,23 @@ document.addEventListener("DOMContentLoaded", () => {
   // clear inline validation as user types (assumes user is attempting to
   // correct the issue). Do not auto-clear the global status (which may
   // contain higher-level information) unless explicitly validated.
-  if (input)
+  if (input) {
     input.addEventListener("input", () => {
       try {
         if (keyValidationEl && input.value.trim() !== "") {
           keyValidationEl.classList.add("sr-only");
         }
+        // Enable/disable balance button based on whether there's an API key
+        if (checkBalanceBtn) {
+          checkBalanceBtn.disabled = !input.value.trim();
+        }
       } catch (e) {}
     });
+    // Initial check to enable/disable balance button
+    if (checkBalanceBtn) {
+      checkBalanceBtn.disabled = !input.value.trim();
+    }
+  }
 
   if (openBtn)
     openBtn.addEventListener("click", (e) => {
@@ -116,7 +131,7 @@ document.addEventListener("DOMContentLoaded", () => {
             localStorage.setItem(STORAGE_KEY, val);
             showStatus(
               "API key saved to local storage (this browser only).",
-              "success"
+              "success",
             );
           } catch (errStorage) {
             // fallback to sessionStorage if localStorage is unavailable
@@ -124,17 +139,17 @@ document.addEventListener("DOMContentLoaded", () => {
               sessionStorage.setItem(STORAGE_KEY, val);
               showStatus(
                 "API key saved to session storage (cleared when browser closed).",
-                "success"
+                "success",
               );
             } catch (errSession) {
               console.error(
                 "Failed to save API key to storage",
                 errStorage,
-                errSession
+                errSession,
               );
               showStatus(
                 "Failed to save API key to storage — check browser privacy/settings.",
-                "error"
+                "error",
               );
               return;
             }
@@ -149,6 +164,10 @@ document.addEventListener("DOMContentLoaded", () => {
           showStatus("API key removed from storage.", "success");
         }
         hide();
+        // Update API key status in main form (if available)
+        if (typeof checkAndUpdateApiKeyStatus === "function") {
+          checkAndUpdateApiKeyStatus();
+        }
       } catch (err) {
         console.error("Failed to save API key", err);
         showStatus("Failed to save API key — unexpected error.", "error");
@@ -174,6 +193,10 @@ document.addEventListener("DOMContentLoaded", () => {
             input.value = "";
             showStatus("API key removed from storage.", "success");
             showInlineValidation("Cleared", "success");
+            // Update API key status in main form (if available)
+            if (typeof checkAndUpdateApiKeyStatus === "function") {
+              checkAndUpdateApiKeyStatus();
+            }
           } catch (err) {
             console.error("Failed to clear API key", err);
             showStatus("Failed to clear API key.", "error");
@@ -210,13 +233,13 @@ document.addEventListener("DOMContentLoaded", () => {
         } else if (res.status === 403) {
           showStatus(
             "API key appears valid but is forbidden or out of balance",
-            "error"
+            "error",
           );
           showInlineValidation("Insufficient balance / forbidden", "error");
         } else {
           showStatus(
             "Validation failed: " + (data.error || `status ${res.status}`),
-            "error"
+            "error",
           );
           showInlineValidation("Invalid", "error");
         }
@@ -224,6 +247,90 @@ document.addEventListener("DOMContentLoaded", () => {
         console.error("Validation error", err);
         showStatus("Validation request failed (network error)", "error");
         showInlineValidation("Network error", "error");
+      }
+    });
+
+  if (checkBalanceBtn)
+    checkBalanceBtn.addEventListener("click", async (e) => {
+      e.preventDefault();
+      const key = input.value.trim();
+      if (!key) {
+        if (balanceDisplay) {
+          balanceDisplay.textContent = "Please enter an API key first";
+          balanceDisplay.className = "mt-2 text-sm text-red-600";
+        }
+        return;
+      }
+
+      // Show loading state
+      if (balanceDisplay) {
+        balanceDisplay.textContent = "Checking balance...";
+        balanceDisplay.className = "mt-2 text-sm text-gray-600";
+      }
+      checkBalanceBtn.disabled = true;
+
+      try {
+        const res = await fetch("/api/check_balance", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${key}`,
+          },
+          body: JSON.stringify({}),
+        });
+        const data = await res.json();
+
+        if (res.status === 200 && data.success) {
+          const balance = data.balance;
+          let displayText = "";
+
+          if (typeof balance === "object" && balance !== null) {
+            // Format the balance data nicely
+            if (balance.pollen !== undefined) {
+              displayText = `Balance: ${balance.pollen.toFixed(4)} pollen`;
+            }
+            if (balance.tier) {
+              displayText += ` (${balance.tier} tier)`;
+            }
+            if (balance.tier_pollen !== undefined) {
+              displayText += ` | Tier balance: ${balance.tier_pollen.toFixed(2)}`;
+            }
+          } else {
+            displayText = `Balance: ${JSON.stringify(balance)}`;
+          }
+
+          if (balanceDisplay) {
+            balanceDisplay.textContent = displayText;
+            balanceDisplay.className =
+              "mt-2 text-sm text-green-700 font-semibold";
+          }
+        } else if (res.status === 401) {
+          if (balanceDisplay) {
+            balanceDisplay.textContent = "Unauthorized - Invalid API key";
+            balanceDisplay.className = "mt-2 text-sm text-red-600";
+          }
+        } else if (res.status === 403) {
+          if (balanceDisplay) {
+            balanceDisplay.textContent =
+              "Access forbidden: " + (data.error || "Permission denied");
+            balanceDisplay.className = "mt-2 text-sm text-red-600";
+          }
+        } else {
+          if (balanceDisplay) {
+            balanceDisplay.textContent =
+              "Error: " + (data.error || `Status ${res.status}`);
+            balanceDisplay.className = "mt-2 text-sm text-red-600";
+          }
+        }
+      } catch (err) {
+        console.error("Balance check error", err);
+        if (balanceDisplay) {
+          balanceDisplay.textContent =
+            "Network error - Could not check balance";
+          balanceDisplay.className = "mt-2 text-sm text-red-600";
+        }
+      } finally {
+        checkBalanceBtn.disabled = !input.value.trim();
       }
     });
 
@@ -239,7 +346,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!modal.classList.contains("flex")) return;
     if (e.key !== "Tab") return;
     const focusable = modal.querySelectorAll(
-      "a[href], button:not([disabled]), textarea, input, select"
+      "a[href], button:not([disabled]), textarea, input, select",
     );
     if (!focusable.length) return;
     const first = focusable[0];

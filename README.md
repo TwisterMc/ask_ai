@@ -6,7 +6,9 @@ A web application that generates images using the Pollinations.AI API, featuring
 
 - **AI Image Generation**: Generate images from text descriptions using various AI models
 - **Prompt Enhancement**: Automatically enhance your prompts using AI
-- **Password Generator**: Create secure, customizable passwords using either random characters or memorable random words.
+- **Password Generator**: Create secure, customizable passwords using either random characters or memorable random words
+- **API Key Management**: Store your Pollinations.AI API key securely in your browser's local storage
+- **Balance Checking**: Check your pollen balance directly from the settings panel
 - **Persistent Settings**: Automatically saves and restores your preferred settings
 - **Multiple AI Models** (sorted by cost):
   - **$** GPT Image 1 Mini - OpenAI's image model (cheapest, default)
@@ -47,21 +49,21 @@ git clone https://github.com/TwisterMc/ask_ai
 cd ask_ai
 ```
 
-2. (Optional) Set up your API token:
-
-Create a `.env` file in the project root:
-
-```bash
-echo 'POLLINATIONS_API_TOKEN=your-api-key-here' > .env
-```
-
-Replace `your-api-key-here` with your API key from [enter.pollinations.ai](https://enter.pollinations.ai). This enables watermark removal on generated images.
-
-3. Install dependencies:
+2. Install dependencies:
 
 ```bash
 python3 -m pip install -r requirements.txt
 ```
+
+3. (Optional) For demo/testing only - Set up a server API token:
+
+Create a `.env` file in the project root:
+
+```bash
+echo 'POLLINATIONS_API_TOKEN=wrestling' > .env
+```
+
+**Note:** Setting `POLLINATIONS_API_TOKEN=wrestling` enables a demo key for testing. For production use, users should provide their own API keys through the "AI Settings" interface (no server-side key needed).
 
 ## Running the Application
 
@@ -109,25 +111,43 @@ deactivate
 1. Clone your repository on the hosting platform
 2. Create a virtual environment and install dependencies
 3. Set environment variables for optional features:
-   - `POLLINATIONS_API_TOKEN`: Your Bearer token from [enter.pollinations.ai](https://enter.pollinations.ai) (optional - enables watermark removal)
+   - `POLLINATIONS_API_TOKEN`: Set to `wrestling` to enable a demo/test key for server-side requests (not recommended for production)
    - `POLLINATIONS_REFERRER`: (optional) Fallback referrer domain if auto-detection fails
 4. Configure your web app to use Flask
 5. Update the WSGI configuration to point to `app.py`
 
 **How it works:**
 
+- Users must provide their own API keys from [enter.pollinations.ai](https://enter.pollinations.ai)
+- API keys are stored in the browser's localStorage (never sent to the app server)
+- Keys are sent directly from the browser to Pollinations.AI for each request
 - The app automatically detects your domain from the request (e.g., `twistermc.pythonanywhere.com` or `localhost:5000`)
 - The domain is sent to the Pollinations API as the referrer
 - If auto-detection fails for some reason, it falls back to the `POLLINATIONS_REFERRER` environment variable (defaults to `localhost:5000`)
 
-**For watermark removal and higher rate limits:**
+**API Key Management:**
 
-- Get a free account at [enter.pollinations.ai](https://enter.pollinations.ai) (formerly auth.pollinations.ai)
+- Users are required to provide their own API keys for image generation and AI features
+- Get a free account at [enter.pollinations.ai](https://enter.pollinations.ai)
 - Copy your API Bearer token
-- Add `POLLINATIONS_API_TOKEN` as an environment variable on your hosting platform
-- The API will automatically use your token for watermark removal and higher rate limits
+- Click "AI Settings" in the footer to add your key
+- Keys are stored locally in your browser only (never on the server)
+- The server's `POLLINATIONS_API_TOKEN` is only used if explicitly set to `wrestling` (for demo/testing purposes)
 
 ## Usage
+
+### First: Set Up Your API Key
+
+1. Click "AI Settings" in the footer of any page
+2. Get your free API key from [enter.pollinations.ai](https://enter.pollinations.ai)
+3. Paste your key into the settings dialog
+4. Click "Validate" to test your key
+5. Click "Check Balance" to see your pollen balance
+6. Click "Save" to store the key in your browser
+
+Your API key is stored only in your browser's localStorage and is never sent to this app's server.
+
+### Generate Images
 
 1. Enter a text prompt describing the image you want to generate
 2. (Optional) Enter a negative prompt to specify what you don't want in the image
@@ -141,20 +161,25 @@ deactivate
    - Configure seed (random or fixed value for reproducible results)
 5. Click "Generate Image" to create your image
 6. Previous prompts are saved in the history for easy reuse
-7. **To generate a password:**
-   - Go to `/password` or click the "Password Generator" link in the app.
-   - By default, the generator uses random words for memorability.
-   - Select the number of words (4–10) and one or more categories.
-   - Optionally, switch to random characters.
-   - Click "Generate Password" to get your password, and use the copy button for convenience.
+
+### Generate Passwords
+
+1. Go to `/password` or click the "Password Generator" link in the app
+2. By default, the generator uses random words for memorability
+3. Select the number of words (4–10) and one or more categories
+4. Optionally, switch to random characters
+5. Click "Generate Password" to get your password, and use the copy button for convenience
 
 ## API Endpoints
 
 - `POST /enhance_prompt`: Enhance a text prompt using AI (powered by Pollinations.AI)
 - `POST /generate`: Generate an image from a prompt (powered by Pollinations.AI)
 - `POST /api/generate_password`: Generate a secure password (JSON: `{ "length": 20 }`)
+- `POST /api/validate_key`: Validate a Pollinations.AI API key (requires Authorization header)
+- `POST /api/check_balance`: Check pollen balance for an API key (requires Authorization header)
 - `GET /`: Main application interface
 - `GET /password`: Password generator interface
+- `GET /image`: Image generator interface
 
 ## Technical Features
 

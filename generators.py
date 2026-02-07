@@ -16,6 +16,15 @@ _PRICING_CACHE = {}
 _PRICING_CACHE_TTL = 60  # seconds
 
 
+def _should_use_server_api_token():
+    """Check if the server's API token should be used as fallback.
+    Only returns True if the token is explicitly set to 'wrestling' (demo/test key).
+    Otherwise, users must provide their own API keys.
+    """
+    token = API_CONFIG.get('API_TOKEN', '')
+    return token == 'wrestling'
+
+
 def chat_api(request):
     """Simple proxy for text/chat interactions. Accepts JSON { message, model, temperature, max_tokens }.
     Sends a GET request to the configured TEXT_API endpoint with the encoded message and optional query params.
@@ -47,7 +56,7 @@ def chat_api(request):
             incoming_auth = None
         if incoming_auth:
             headers['Authorization'] = incoming_auth
-        elif API_CONFIG.get('API_TOKEN'):
+        elif _should_use_server_api_token():
             headers['Authorization'] = f"Bearer {API_CONFIG['API_TOKEN']}"
 
         # The upstream text API expects a GET request with the encoded prompt
@@ -148,7 +157,7 @@ def validate_api_key(request):
             incoming_auth = None
         if incoming_auth:
             headers['Authorization'] = incoming_auth
-        elif API_CONFIG.get('API_TOKEN'):
+        elif _should_use_server_api_token():
             headers['Authorization'] = f"Bearer {API_CONFIG['API_TOKEN']}"
 
         r = requests.get(models_url, headers=headers, timeout=10)
@@ -161,6 +170,40 @@ def validate_api_key(request):
             return jsonify({"success": False, "error": f"Validation failed: status {r.status_code}"}), r.status_code
     except Exception as e:
         return jsonify({"success": False, "error": f"Validation error: {str(e)}"})
+
+
+def check_balance_api(request):
+    """Check user's pollen balance using the /account/balance endpoint.
+    Requires Authorization header with Bearer token.
+    """
+    try:
+        balance_url = "https://gen.pollinations.ai/account/balance"
+        headers = {}
+        try:
+            incoming_auth = request.headers.get('Authorization')
+        except Exception:
+            incoming_auth = None
+        if incoming_auth:
+            headers['Authorization'] = incoming_auth
+        elif _should_use_server_api_token():
+            headers['Authorization'] = f"Bearer {API_CONFIG['API_TOKEN']}"
+        else:
+            return jsonify({"success": False, "error": "No API key provided"}), 401
+
+        r = requests.get(balance_url, headers=headers, timeout=10)
+        if r.status_code == 200:
+            data = r.json()
+            return jsonify({"success": True, "balance": data})
+        elif r.status_code == 401:
+            msg = _parse_api_error(r)
+            return jsonify({"success": False, "error": f"Unauthorized: {msg}"}), 401
+        elif r.status_code == 403:
+            msg = _parse_api_error(r)
+            return jsonify({"success": False, "error": msg}), 403
+        else:
+            return jsonify({"success": False, "error": f"Balance check failed: status {r.status_code}"}), r.status_code
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Balance check error: {str(e)}"})
 
 
 
@@ -180,7 +223,7 @@ def get_model_pricing(model_name, request_obj=None):
             incoming_auth = None
         if incoming_auth:
             h['Authorization'] = incoming_auth
-        elif API_CONFIG.get('API_TOKEN'):
+        elif _should_use_server_api_token():
             h['Authorization'] = f"Bearer {API_CONFIG['API_TOKEN']}"
         # use a cached value when available
         cache_key = f"models::{model_name}"
@@ -271,7 +314,7 @@ def enhance_prompt_api(request):
             incoming_auth = None
         if incoming_auth:
             headers['Authorization'] = incoming_auth
-        elif API_CONFIG.get('API_TOKEN'):
+        elif _should_use_server_api_token():
             headers['Authorization'] = f"Bearer {API_CONFIG['API_TOKEN']}"
         
         try:
@@ -410,7 +453,7 @@ def generate_image_api(request):
             incoming_auth = None
         if incoming_auth:
             headers['Authorization'] = incoming_auth
-        elif API_CONFIG.get('API_TOKEN'):
+        elif _should_use_server_api_token():
             headers['Authorization'] = f"Bearer {API_CONFIG['API_TOKEN']}"
         
         try:

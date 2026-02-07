@@ -30,23 +30,114 @@ function saveFormSettings() {
 }
 
 /**
+ * Checks if user has an API key and updates button/warning state accordingly
+ */
+function checkAndUpdateApiKeyStatus() {
+  const generateBtn = document.getElementById("generateButton");
+  const warningEl = document.getElementById("apiKeyWarning");
+
+  if (!generateBtn) return;
+
+  try {
+    const hasApiKey = !!localStorage.getItem("ask_ai_user_api_key");
+
+    if (hasApiKey) {
+      // API key present - enable button and hide warning
+      generateBtn.disabled = false;
+      generateBtn.setAttribute("aria-disabled", "false");
+      if (warningEl) warningEl.classList.add("hidden");
+    } else {
+      // No API key - disable button and show warning
+      generateBtn.disabled = true;
+      generateBtn.setAttribute("aria-disabled", "true");
+      if (warningEl) warningEl.classList.remove("hidden");
+    }
+  } catch (e) {
+    // If localStorage is unavailable, assume no key
+    generateBtn.disabled = true;
+    generateBtn.setAttribute("aria-disabled", "true");
+    if (warningEl) warningEl.classList.remove("hidden");
+  }
+}
+
+/**
  * Loads saved form settings from localStorage
  * Applies saved settings or falls back to defaults
  */
 function loadFormSettings() {
-  const settings = JSON.parse(localStorage.getItem("formSettings"));
-  if (settings) {
-    document.getElementById("model").value = settings.model || "SDXL";
-    document.getElementById("style").value = settings.style || "photographic";
-    document.getElementById("size").value = settings.size || "1024x1024";
-    document.getElementById("quality").value = settings.quality || "balanced";
-    document.getElementById("guidance").value = settings.guidance || "7.0";
-    document.getElementById("seed-mode").value = settings.seedMode || "random";
-    // Update guidance value display
-    document.getElementById("guidance-value").textContent =
-      settings.guidance || "7.0";
-    // Update seed input state
-    toggleSeedInput();
+  const settings = JSON.parse(localStorage.getItem("formSettings")) || {};
+
+  // Always set values to ensure consistency, using saved settings or defaults
+  document.getElementById("model").value = settings.model || "gptimage";
+  document.getElementById("style").value = settings.style || "photographic";
+  document.getElementById("size").value = settings.size || "1024x1024";
+  document.getElementById("quality").value = settings.quality || "balanced";
+  document.getElementById("guidance").value = settings.guidance || "7.0";
+  document.getElementById("seed-mode").value = settings.seedMode || "random";
+
+  // Update guidance value display
+  document.getElementById("guidance-value").textContent =
+    settings.guidance || "7.0";
+
+  // Update seed input state
+  toggleSeedInput();
+}
+
+/**
+ * Fetches and displays the user's account balance
+ */
+async function fetchBalance() {
+  const balanceDisplayEl = document.getElementById("balanceDisplay");
+  if (!balanceDisplayEl) return;
+
+  try {
+    const userKey = localStorage.getItem("ask_ai_user_api_key");
+    if (!userKey) {
+      balanceDisplayEl.textContent = "Balance: — (no API key)";
+      balanceDisplayEl.className = "text-sm text-gray-500";
+      return;
+    }
+
+    const headers = {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${userKey}`,
+    };
+
+    const res = await fetch("/api/check_balance", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({}),
+    });
+
+    const data = await res.json();
+
+    if (res.status === 200 && data.success) {
+      const balance = data.balance;
+      let displayText = "";
+
+      if (typeof balance === "object" && balance !== null) {
+        if (balance.pollen !== undefined) {
+          displayText = `Balance: ${balance.pollen.toFixed(4)} pollen`;
+        }
+        if (balance.tier_pollen !== undefined) {
+          displayText += ` (tier: ${balance.tier_pollen.toFixed(2)})`;
+        }
+      } else {
+        displayText = `Balance: ${JSON.stringify(balance)}`;
+      }
+
+      balanceDisplayEl.textContent = displayText;
+      balanceDisplayEl.className = "text-sm text-green-700 font-semibold";
+    } else if (res.status === 401) {
+      balanceDisplayEl.textContent = "Balance: Invalid API key";
+      balanceDisplayEl.className = "text-sm text-red-600";
+    } else {
+      balanceDisplayEl.textContent = "Balance: unavailable";
+      balanceDisplayEl.className = "text-sm text-gray-500";
+    }
+  } catch (err) {
+    balanceDisplayEl.textContent = "Balance: unavailable";
+    balanceDisplayEl.className = "text-sm text-gray-500";
   }
 }
 
@@ -68,9 +159,23 @@ document.addEventListener("DOMContentLoaded", () => {
   // Load saved settings and set up listeners
   loadFormSettings();
   updateHistoryDisplay();
+  checkAndUpdateApiKeyStatus();
+
+  // Set up warning button to open settings
+  const openSettingsBtn = document.getElementById("openSettingsFromWarning");
+  if (openSettingsBtn) {
+    openSettingsBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      const settingsBtn = document.getElementById("openSettings");
+      if (settingsBtn) {
+        settingsBtn.click();
+      }
+    });
+  }
 
   // set up dynamic image estimate fetching (if imageEstimate element exists)
   const imageEstimateEl = document.getElementById("imageEstimate");
+
   if (imageEstimateEl) {
     async function fetchImageEstimate() {
       try {
@@ -131,8 +236,12 @@ document.addEventListener("DOMContentLoaded", () => {
       const el = document.getElementById(id);
       if (el) el.addEventListener("change", fetchImageEstimate);
     });
-    // initial estimate
-    fetchImageEstimate();
+
+    // Fetch initial estimate and balance after a brief delay to ensure form values are fully loaded
+    setTimeout(() => {
+      fetchImageEstimate();
+      fetchBalance();
+    }, 0);
   }
 });
 
@@ -318,6 +427,21 @@ async function generateImage() {
     return;
   }
 
+  // Check if user has an API key
+  let userKey = null;
+  try {
+    userKey = localStorage.getItem("ask_ai_user_api_key");
+  } catch (e) {
+    // localStorage might be unavailable
+  }
+
+  if (!userKey) {
+    showError(
+      "API key required. Click 'AI Settings' in the footer to add your Pollinations API key.",
+    );
+    return;
+  }
+
   loading.classList.remove("hidden");
   result.classList.add("hidden");
   hideError();
@@ -377,6 +501,8 @@ async function generateImage() {
       img.onload = () => {
         result.scrollIntoView({ behavior: "smooth", block: "nearest" });
       };
+      // Refresh balance after successful generation
+      fetchBalance();
     } else {
       throw new Error(data.error || "Failed to generate image");
     }
@@ -468,7 +594,7 @@ function showEnhancementModal(enhancedText, originalPrompt) {
       html += `
         <div class="border rounded-lg p-4 bg-gray-50 hover:bg-gray-100 transition-colors">
           <h4 class="font-semibold text-gray-700 mb-2">${escapeHtml(
-            prompt.title || `Option ${index + 1}`
+            prompt.title || `Option ${index + 1}`,
           )}</h4>
           <p class="text-gray-600 text-sm whitespace-pre-wrap mb-3">${escapedText}</p>
           <button
@@ -866,7 +992,7 @@ function focusTrapOnModal(modal) {
     modal.querySelectorAll(`
         a[href], area[href], input:not([disabled]), select:not([disabled]), 
         textarea:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])
-    `)
+    `),
   );
 
   if (modalFocusableElements.length === 0) return;
