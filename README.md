@@ -9,16 +9,17 @@ A web application that generates images using the Pollinations.AI API, featuring
 - **Password Generator**: Create secure, customizable passwords using either random characters or memorable random words.
 - **Persistent Settings**: Automatically saves and restores your preferred settings
 - **Multiple AI Models** (sorted by cost):
-
   - **$** GPT Image 1 Mini - OpenAI's image model (cheapest, default)
-  - **$** NanoBanana - Gemini 2.5 Flash
-  - **$$** FLUX - Fast & High Quality
-  - **$$** NanoBanana Pro - Gemini 3 Pro (4K, Thinking)
-  - **$$** Z-Image Turbo - Fast 6B parameter model
-  - **$$** Turbo - Ultra-fast generation
-  - **$$$** Seedream 4.0 - ByteDance ARK
-  - **$$$$** Kontext - Context-aware (supports image-to-image)
-  - **$$$$** Seedream Pro 4.5 - ByteDance ARK (4K, Multi-Image)
+  - **$$** FLUX Schnell - Fast high-quality image generation
+  - **$$** Z-Image Turbo - Fast 6B Flux with 2x upscaling
+  - **$$$** FLUX.2 Klein 4B - Fast image generation & editing
+  - **$$$** FLUX.2 Klein 9B - Higher quality image generation & editing
+  - **$$$ PAID** NanoBanana - Gemini 2.5 Flash (requires paid balance)
+  - **$$$ PAID** NanoBanana Pro - Gemini 3 Pro (4K, Thinking, requires paid balance)
+  - **$$$$ PAID** GPT Image 1.5 - OpenAI's advanced image model (requires paid balance)
+  - **$$$$ PAID** Seedream 4.0 - ByteDance ARK (requires paid balance)
+  - **$$$$ PAID** Kontext - Context-aware, supports image-to-image (requires paid balance)
+  - **$$$$ PAID** Seedream Pro 4.5 - ByteDance ARK (4K, Multi-Image, requires paid balance)
 
 - **Customization Options**:
   - Multiple style presets (photographic, digital art, cinematic, steampunk, cyberpunk, neon, pixel art, and more)
@@ -222,13 +223,11 @@ The application follows WCAG 2.2 guidelines to ensure accessibility for all user
 We use Tailwind CSS for all styling in this project. Here are the key principles:
 
 1. **No Custom CSS**
-
    - Use Tailwind utility classes for all styling needs
    - Avoid inline styles and custom CSS classes
    - If a style can't be achieved with utilities, consider using Tailwind's @apply or adjusting the Tailwind config
 
 2. **Common Patterns**
-
    - Forms: Use standard classes for inputs and controls
      ```html
      <input
@@ -247,14 +246,12 @@ We use Tailwind CSS for all styling in this project. Here are the key principles
      ```
 
 3. **Accessibility**
-
    - Use Tailwind's built-in accessibility classes
    - Maintain proper color contrast using Tailwind's color palette
    - Ensure focus states are visible using focus: utilities
    - Use sr-only class for screen reader content
 
 4. **Responsive Design**
-
    - Use Tailwind's responsive prefixes (sm:, md:, lg:, xl:)
    - Mobile-first approach with progressive enhancement
 

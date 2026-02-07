@@ -89,6 +89,10 @@ def chat_api(request):
             if resp.status_code == 403:
                 msg = _parse_api_error(resp)
                 return jsonify({"success": False, "error": f"API Error 403: {msg}"}), 403
+            # handle payment required (402) to display helpful message
+            if resp.status_code == 402:
+                msg = _parse_api_error(resp)
+                return jsonify({"success": False, "error": f"API Error 402: {msg}"}), 402
             return jsonify({"success": False, "error": f"Chat service returned status {resp.status_code}"}), resp.status_code
 
         # attempt to parse JSON reply; otherwise use text
@@ -288,6 +292,10 @@ def enhance_prompt_api(request):
             if response.status_code == 403:
                 msg = _parse_api_error(response)
                 return jsonify({"success": False, "error": f"API Error 403: {msg}"})
+            # handle payment required (402) to display helpful message
+            if response.status_code == 402:
+                msg = _parse_api_error(response)
+                return jsonify({"success": False, "error": f"API Error 402: {msg}"})
             return jsonify({"success": False, "error": f"Enhancement service returned error {response.status_code}. Please try again."})
         
         # Return the full enhanced text for modal display
@@ -423,6 +431,10 @@ def generate_image_api(request):
             if img_response.status_code == 403:
                 msg = _parse_api_error(img_response)
                 return jsonify({"success": False, "error": f"API Error 403: {msg}"})
+            # handle payment required (402) to display helpful message
+            if img_response.status_code == 402:
+                msg = _parse_api_error(img_response)
+                return jsonify({"success": False, "error": f"API Error 402: {msg}"})
             error_msg = f"Image generation failed with status {img_response.status_code}"
             if img_response.status_code == 400:
                 error_msg = "Invalid request parameters. Please check your settings."

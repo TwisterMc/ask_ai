@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -96,7 +96,7 @@
                 class="px-4 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
                 aria-label="Enhance current prompt"
                 aria-disabled="false"
-                onclick="enhancePrompt();"
+                onclick="enhancePrompt()"
               >
                 Enhance
               </button>
@@ -106,7 +106,7 @@
                 class="flex-1 bg-green-700 text-white py-2 px-4 rounded-lg hover:bg-green-800 focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-all disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-green-700 disabled:focus:ring-0"
                 aria-label="Generate image from prompt"
                 aria-disabled="false"
-                onclick="generateImage();"
+                onclick="generateImage()"
               >
                 Generate Image
               </button>
@@ -132,16 +132,26 @@
                 aria-disabled="false"
               >
                 <option value="gptimage">GPT Image 1 Mini ($)</option>
-                <option value="nanobanana">NanoBanana - Gemini 2.5 ($)</option>
-                <option value="flux">FLUX - Fast & High Quality ($$)</option>
-                <option value="nanobanana-pro">
-                  NanoBanana Pro - Gemini 3 ($$)
+                <option value="flux">FLUX Schnell ($$)</option>
+                <option value="zimage">Z-Image Turbo - 6B Flux ($$)</option>
+                <option value="klein">FLUX.2 Klein 4B ($$$)</option>
+                <option value="klein-large">FLUX.2 Klein 9B ($$$)</option>
+                <option value="nanobanana">
+                  NanoBanana - Gemini 2.5 ($$$ - PAID)
                 </option>
-                <option value="zimage">Z-Image Turbo ($$)</option>
-                <option value="turbo">Turbo - Ultra-fast ($$)</option>
-                <option value="seedream">Seedream 4.0 ($$$)</option>
-                <option value="kontext">Kontext - Context-aware ($$$$)</option>
-                <option value="seedream-pro">Seedream Pro 4.5 ($$$$)</option>
+                <option value="nanobanana-pro">
+                  NanoBanana Pro - Gemini 3 ($$$ - PAID)
+                </option>
+                <option value="gptimage-large">
+                  GPT Image 1.5 ($$$$ - PAID)
+                </option>
+                <option value="seedream">Seedream 4.0 ($$$$ - PAID)</option>
+                <option value="kontext">
+                  Kontext - Context-aware ($$$$ - PAID)
+                </option>
+                <option value="seedream-pro">
+                  Seedream Pro 4.5 ($$$$ - PAID)
+                </option>
               </select>
             </div>
             <div>
@@ -239,7 +249,10 @@
               step="0.5"
               value="7.0"
               class="w-full disabled:opacity-50"
-              oninput="document.getElementById('guidance-value').textContent = this.value"
+              oninput="
+                document.getElementById('guidance-value').textContent =
+                  this.value
+              "
               tabindex="0"
               aria-disabled="false"
               onchange="saveFormSettings()"
@@ -290,13 +303,23 @@
                 class="w-full rounded-lg shadow-lg cursor-pointer hover:opacity-90 transition-opacity"
                 src=""
                 alt=""
-                onclick="event.preventDefault(); openImageModal(this.src, this.alt)"
+                onclick="
+                  event.preventDefault();
+                  openImageModal(this.src, this.alt);
+                "
                 role="button"
                 tabindex="0"
-                onkeypress="event.preventDefault(); if (event.key === 'Enter') openImageModal(this.src, this.alt)"
+                onkeypress="
+                  event.preventDefault();
+                  if (event.key === 'Enter') openImageModal(this.src, this.alt);
+                "
               />
               <button
-                onclick="event.preventDefault(); const img = document.getElementById('generated-image'); openImageModal(img.src, img.alt)"
+                onclick="
+                  event.preventDefault();
+                  const img = document.getElementById('generated-image');
+                  openImageModal(img.src, img.alt);
+                "
                 class="absolute top-4 right-4 bg-black/50 hover:bg-black/70 text-white p-2 rounded-lg transition-colors"
                 aria-label="View image in full size"
               >
