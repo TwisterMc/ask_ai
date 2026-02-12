@@ -295,41 +295,22 @@
             />
           </div>
 
-          <div class="grid grid-cols-2 gap-4 mb-4">
-            <div>
-              <label
-                for="seed-mode"
-                class="block text-gray-700 text-sm font-bold mb-2"
-              >
-                Seed Mode:
-              </label>
-              <select
-                id="seed-mode"
-                onchange="toggleSeedInput()"
-                class="w-full px-3 py-2 border rounded-lg disabled:opacity-50"
-                aria-disabled="false"
-              >
-                <option value="random">Random</option>
-                <option value="fixed">Fixed Value</option>
-              </select>
-            </div>
-            <div>
-              <label
-                for="seed"
-                class="block text-gray-700 text-sm font-bold mb-2"
-              >
-                Seed:
-              </label>
-              <input
-                type="number"
-                id="seed"
-                min="0"
-                max="999999"
-                placeholder="Leave empty for random"
-                class="w-full px-3 py-2 border rounded-lg disabled:opacity-50 disabled:bg-gray-100"
-                disabled
-              />
-            </div>
+          <div class="mb-4">
+            <label
+              for="seed"
+              class="block text-gray-700 text-sm font-bold mb-2"
+            >
+              Seed:
+            </label>
+            <input
+              type="number"
+              id="seed"
+              min="0"
+              max="999999"
+              placeholder="Leave empty for random"
+              onchange="saveFormSettings()"
+              class="w-full px-3 py-2 border rounded-lg"
+            />
           </div>
 
           <div id="result" class="mt-6 hidden" role="region" aria-live="polite">

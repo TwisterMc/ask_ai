@@ -24,7 +24,7 @@ function saveFormSettings() {
       (document.getElementById("baseResolution") || {}).value || "1024",
     quality: document.getElementById("quality").value,
     guidance: document.getElementById("guidance").value,
-    seedMode: document.getElementById("seed-mode").value,
+    seed: document.getElementById("seed").value,
     aspectRatio: (document.getElementById("aspectRatio") || {}).value || "1:1",
   };
   console.debug && console.debug("Saving settings:", settings);
@@ -88,16 +88,13 @@ function loadFormSettings() {
   if (baseResolutionEl) baseResolutionEl.value = baseResolution || "1024";
   document.getElementById("quality").value = settings.quality || "balanced";
   document.getElementById("guidance").value = settings.guidance || "7.0";
-  document.getElementById("seed-mode").value = settings.seedMode || "random";
+  document.getElementById("seed").value = settings.seed || "";
   // restore aspect ratio when available (default 1:1)
   if (aspectRatioEl) aspectRatioEl.value = aspectRatio || "1:1";
 
   // Update guidance value display
   document.getElementById("guidance-value").textContent =
     settings.guidance || "7.0";
-
-  // Update seed input state
-  toggleSeedInput();
 }
 
 const IMAGE_ASPECT_RATIOS = {
@@ -247,15 +244,6 @@ async function fetchBalance() {
 /**
  * Toggles the seed input field based on seed mode
  */
-function toggleSeedInput() {
-  const seedMode = document.getElementById("seed-mode").value;
-  const seedInput = document.getElementById("seed");
-  seedInput.disabled = seedMode === "random";
-  if (seedMode === "random") {
-    seedInput.value = "";
-  }
-  saveFormSettings();
-}
 
 // Set up button event listeners
 document.addEventListener("DOMContentLoaded", () => {
@@ -806,7 +794,6 @@ async function generateImage() {
     const size = sizeInfo ? sizeInfo.size : "1024x1024";
     const quality = document.getElementById("quality").value;
     const guidance = document.getElementById("guidance").value;
-    const seedMode = document.getElementById("seed-mode").value;
     const seedValue = document.getElementById("seed").value;
 
     const requestBody = {
@@ -818,18 +805,15 @@ async function generateImage() {
       guidance,
     };
 
-    // Add seed if in fixed mode and has a value
     // Determine seed: use fixed seed when provided, otherwise generate a random seed
-    let seedToSend = null;
-    if (seedMode === "fixed" && seedValue) {
-      seedToSend = parseInt(seedValue);
-    } else {
-      // Use -1 to signal 'random' per Pollinations API (server will forward -1)
-      seedToSend = -1;
+    let seedToSend = -1; // Default to random
+    if (seedValue && seedValue.trim() !== "") {
+      const parsedSeed = parseInt(seedValue);
+      if (!Number.isNaN(parsedSeed)) {
+        seedToSend = parsedSeed;
+      }
     }
-    if (seedToSend !== null && !Number.isNaN(seedToSend)) {
-      requestBody.seed = seedToSend;
-    }
+    requestBody.seed = seedToSend;
 
     console.debug && console.debug("Sending request with style:", style);
     console.debug && console.debug("Full request body:", requestBody);
