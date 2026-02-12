@@ -10,6 +10,10 @@ from config import API_CONFIG
 import re
 import time
 from requests.exceptions import Timeout, ConnectionError, RequestException
+import logging
+
+# module logger
+logger = logging.getLogger(__name__)
 
 # simple in-memory cache for model pricing: { model_key: (timestamp, value) }
 _PRICING_CACHE = {}
@@ -73,7 +77,7 @@ def chat_api(request):
             request_url += f"?referrer={host}"
 
         try:
-            print(f"Chat request_url: {request_url}")
+            logger.debug("Chat request_url: %s", request_url)
             resp = requests.get(request_url, headers=headers, timeout=API_CONFIG.get('TIMEOUT', 30))
         except Timeout:
             return jsonify({"success": False, "error": "The chat service timed out. Please try again."})
@@ -172,9 +176,14 @@ def check_balance_api(request):
             incoming_auth = None
         
         # Debug logging
-        print(f"[CHECK_BALANCE] Incoming auth header present: {bool(incoming_auth)}")
+        logger.debug("[CHECK_BALANCE] Incoming auth header present: %s", bool(incoming_auth))
         if incoming_auth:
-            print(f"[CHECK_BALANCE] Auth header starts with: {incoming_auth[:20] if len(incoming_auth) > 20 else incoming_auth}")
+            # do not log full token; show masked prefix for debugging only
+            try:
+                prefix = (incoming_auth[:8] + '...') if len(incoming_auth) > 8 else incoming_auth
+            except Exception:
+                prefix = "(masked)"
+            logger.debug("[CHECK_BALANCE] Auth header prefix: %s", prefix)
         
         if incoming_auth:
             headers['Authorization'] = incoming_auth
@@ -182,9 +191,9 @@ def check_balance_api(request):
             return jsonify({"success": False, "error": "No API key provided"}), 401
 
         r = requests.get(balance_url, headers=headers, timeout=10)
-        print(f"[CHECK_BALANCE] Pollinations API response: {r.status_code}")
+        logger.debug("[CHECK_BALANCE] Pollinations API response: %s", r.status_code)
         if r.status_code != 200:
-            print(f"[CHECK_BALANCE] Response text: {r.text[:200]}")
+            logger.debug("[CHECK_BALANCE] Response text: %s", (r.text or '')[:200])
         
         if r.status_code == 200:
             data = r.json()
@@ -198,7 +207,7 @@ def check_balance_api(request):
         else:
             return jsonify({"success": False, "error": f"Balance check failed: status {r.status_code}"}), r.status_code
     except Exception as e:
-        print(f"[CHECK_BALANCE] Exception: {str(e)}")
+        logger.exception("[CHECK_BALANCE] Exception checking balance")
         return jsonify({"success": False, "error": f"Balance check error: {str(e)}"})
 
 
@@ -312,17 +321,17 @@ def enhance_prompt_api(request):
         try:
             response = requests.get(enhancement_url, headers=headers, timeout=API_CONFIG['TIMEOUT'])
         except Timeout:
-            print(f"Timeout connecting to enhancement API")
+            logger.debug("Timeout connecting to enhancement API")
             return jsonify({"success": False, "error": "The AI enhancement service took too long to respond. Please try again."})
         except ConnectionError as e:
-            print(f"Connection error: {str(e)}")
+            logger.debug("Connection error: %s", str(e))
             return jsonify({"success": False, "error": "Failed to connect to the enhancement service. Please check your internet connection."})
         except RequestException as e:
-            print(f"Request error: {str(e)}")
+            logger.debug("Request error: %s", str(e))
             return jsonify({"success": False, "error": f"Error communicating with enhancement service: {str(e)}"})
         
         if response.status_code != 200:
-            print(f"API Error {response.status_code}: {response.text}")
+            logger.debug("API Error %s: %s", response.status_code, response.text)
             # If forbidden, surface the API message clearly
             if response.status_code == 403:
                 msg = _parse_api_error(response)
@@ -341,7 +350,7 @@ def enhance_prompt_api(request):
             "enhanced_prompt": enhanced_prompt
         })
     except Exception as e:
-        print(f"Error enhancing prompt: {str(e)}")
+        logger.exception("Error enhancing prompt")
         return jsonify({"success": False, "error": f"Unexpected error: {str(e)}"})
 
 def generate_image_api(request):
@@ -358,7 +367,7 @@ def generate_image_api(request):
         negative_prompt = data.get("negative_prompt", "")
         seed = data.get("seed", None)
         
-        print(f"[GENERATE] Received request - prompt: {prompt[:50]}, style: {style}, model: {model}")
+        logger.debug("[GENERATE] Received request - prompt: %s, style: %s, model: %s", prompt[:50], style, model)
         
         # Model-specific size requirements
         MODEL_MIN_SIZES = {
@@ -390,8 +399,8 @@ def generate_image_api(request):
                     f"height={height}&"
                     f"model={model}")
         
-        print(f"[GENERATE] Complete prompt: {complete_prompt}")
-        print(f"[GENERATE] URL (without auth): {image_url[:150]}...")
+        logger.debug("[GENERATE] Complete prompt: %s", complete_prompt)
+        logger.debug("[GENERATE] URL (without auth): %s...", image_url[:150])
         
         # Add referrer if not localhost (API doesn't accept IP addresses as referrer)
         host = request.host or API_CONFIG['REFERRER']
@@ -439,7 +448,7 @@ def generate_image_api(request):
                 image_url += "&audio=true"
         
         # Generation request initiated (URL redacted to avoid leaking sensitive params)
-        print(f"Generation request initiated. timeout: {API_CONFIG['TIMEOUT']} seconds")
+        logger.debug("Generation request initiated. timeout: %s seconds", API_CONFIG.get('TIMEOUT'))
         
         # Prepare headers with Bearer token if available, prefer incoming Authorization header
         headers = {}
@@ -450,28 +459,32 @@ def generate_image_api(request):
             incoming_auth = None
         
         # Debug logging
-        print(f"[GENERATE] Incoming auth header present: {bool(incoming_auth)}")
+        logger.debug("[GENERATE] Incoming auth header present: %s", bool(incoming_auth))
         if incoming_auth:
-            print(f"[GENERATE] Auth header starts with: {incoming_auth[:20] if len(incoming_auth) > 20 else incoming_auth}")
+            try:
+                prefix = (incoming_auth[:8] + '...') if len(incoming_auth) > 8 else incoming_auth
+            except Exception:
+                prefix = "(masked)"
+            logger.debug("[GENERATE] Auth header prefix: %s", prefix)
         
         if incoming_auth:
             headers['Authorization'] = incoming_auth
         
         try:
             img_response = requests.get(image_url, headers=headers, timeout=API_CONFIG['TIMEOUT'])
-            print(f"[GENERATE] Pollinations API response: {img_response.status_code}")
+            logger.debug("[GENERATE] Pollinations API response: %s", img_response.status_code)
         except Timeout:
-            print(f"Timeout generating image")
+            logger.debug("Timeout generating image")
             return jsonify({"success": False, "error": "Image generation took too long (timeout). The API may be experiencing high load. Please try again in a moment."})
         except ConnectionError as e:
-            print(f"Connection error: {str(e)}")
+            logger.debug("Connection error: %s", str(e))
             return jsonify({"success": False, "error": "Failed to connect to the image generation service. Please check your internet connection."})
         except RequestException as e:
-            print(f"Request error: {str(e)}")
+            logger.debug("Request error: %s", str(e))
             return jsonify({"success": False, "error": f"Error communicating with image service: {str(e)}"})
         
         if img_response.status_code != 200:
-            print(f"API Error {img_response.status_code}: {img_response.text[:500]}")
+            logger.debug("API Error %s: %s", img_response.status_code, (img_response.text or '')[:500])
             # handle forbidden specifically and try to surface API error
             if img_response.status_code == 403:
                 msg = _parse_api_error(img_response)
@@ -565,10 +578,10 @@ def generate_image_api(request):
             data_url = f"data:image/png;base64,{img_str}"
             return jsonify({"success": True, "url": data_url, "pricing": pricing})
         except Exception as e:
-            print(f"Error processing media: {str(e)}")
+            logger.exception("Error processing media")
             return jsonify({"success": False, "error": f"Error processing the generated media: {str(e)}"})
     except Exception as e:
-        print(f"Unexpected error in generate_image_api: {str(e)}")
+        logger.exception("Unexpected error in generate_image_api")
         return jsonify({"success": False, "error": f"Unexpected error: {str(e)}"}) 
 
 
@@ -663,7 +676,7 @@ def estimate_price_api(request):
 
         return jsonify({"success": True, "pricing": pricing})
     except Exception as e:
-        print(f"Error estimating price: {e}")
+        logger.exception("Error estimating price")
         return jsonify({"success": False, "error": f"Error estimating price: {str(e)}"})
 
 
@@ -707,7 +720,7 @@ def estimate_chat_price_api(request):
 
         return jsonify({"success": True, "pricing": pricing})
     except Exception as e:
-        print(f"Error estimating chat price: {e}")
+        logger.exception("Error estimating chat price")
         return jsonify({"success": False, "error": f"Error estimating chat price: {str(e)}"})
 
 

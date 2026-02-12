@@ -1,5 +1,8 @@
 import secrets
 import string
+import logging
+
+logger = logging.getLogger(__name__)
 
 def generate_secure_password(length=16, include_lowercase=True, include_uppercase=True, include_digits=True, include_symbols=True):
     """
@@ -47,22 +50,21 @@ def generate_secure_password(length=16, include_lowercase=True, include_uppercas
 
     return "".join(password_list)
 
-# Example usage:
-try:
-    password = generate_secure_password(length=20, include_symbols=True)
-    print(f"Generated Password: {password}")
+if __name__ == "__main__":
+    try:
+        password = generate_secure_password(length=20, include_symbols=True)
+        logger.debug("Generated a secure password (not printed)")
 
-    memorable_password = generate_secure_password(
-        length=12,
-        include_lowercase=True,
-        include_uppercase=True,
-        include_digits=True,
-        include_symbols=False # For a slightly less complex but still strong password
-    )
-    print(f"Memorable Password: {memorable_password}")
-
-except ValueError as e:
-    print(f"Error: {e}")
+        memorable_password = generate_secure_password(
+            length=12,
+            include_lowercase=True,
+            include_uppercase=True,
+            include_digits=True,
+            include_symbols=False,  # For a slightly less complex but still strong password
+        )
+        logger.debug("Generated a memorable password (not printed)")
+    except ValueError as e:
+        logger.exception("Error generating password")
 
 # New function: generate a password from random words
 WORD_CATEGORIES = {

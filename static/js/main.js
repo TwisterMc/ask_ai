@@ -25,7 +25,7 @@ function saveFormSettings() {
     guidance: document.getElementById("guidance").value,
     seedMode: document.getElementById("seed-mode").value,
   };
-  console.log("Saving settings:", settings);
+  console.debug && console.debug("Saving settings:", settings);
   localStorage.setItem("formSettings", JSON.stringify(settings));
 }
 
@@ -114,16 +114,25 @@ async function fetchBalance() {
     if (res.status === 200 && data.success) {
       const balance = data.balance;
       let displayText = "";
+      // normalize common keys
+      let numeric = null;
+      try {
+        if (balance && typeof balance === "object") {
+          if (typeof balance.pollen === "number") numeric = balance.pollen;
+          else if (typeof balance.balance === "number")
+            numeric = balance.balance;
+          else if (typeof balance.amount === "number") numeric = balance.amount;
+        } else if (typeof balance === "number") numeric = balance;
+      } catch (e) {}
 
-      if (typeof balance === "object" && balance !== null) {
-        if (balance.pollen !== undefined) {
-          displayText = `Balance: ${balance.pollen.toFixed(4)} pollen`;
-        }
-        if (balance.tier_pollen !== undefined) {
+      if (numeric !== null) {
+        displayText = `Balance: ${numeric.toFixed(4)} pollen`;
+        if (balance && typeof balance.tier_pollen === "number")
           displayText += ` (tier: ${balance.tier_pollen.toFixed(2)})`;
-        }
-      } else {
+      } else if (typeof balance === "object") {
         displayText = `Balance: ${JSON.stringify(balance)}`;
+      } else {
+        displayText = `Balance: ${String(balance)}`;
       }
 
       balanceDisplayEl.textContent = displayText;
@@ -477,8 +486,8 @@ async function generateImage() {
       requestBody.seed = parseInt(seedValue);
     }
 
-    console.log("Sending request with style:", style);
-    console.log("Full request body:", requestBody);
+    console.debug && console.debug("Sending request with style:", style);
+    console.debug && console.debug("Full request body:", requestBody);
 
     const headers = { "Content-Type": "application/json" };
     try {
@@ -494,7 +503,8 @@ async function generateImage() {
     });
 
     const data = await response.json();
-    console.log("Generation response:", { status: response.status, data });
+    console.debug &&
+      console.debug("Generation response:", { status: response.status, data });
 
     if (data.success) {
       img.src = data.url;
@@ -587,7 +597,7 @@ function showEnhancementModal(enhancedText, originalPrompt) {
   // Parse the response to extract individual prompts
   const prompts = parseEnhancedPrompts(enhancedText);
 
-  console.log("Parsed prompts:", prompts); // Debug
+  console.debug && console.debug("Parsed prompts:", prompts); // Debug
 
   // Build the modal content
   let html = "";

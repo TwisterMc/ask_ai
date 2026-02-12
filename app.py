@@ -18,6 +18,9 @@ app = Flask(__name__)
 
 # Import API configuration
 from config import API_CONFIG
+import logging
+
+logger = logging.getLogger(__name__)
 
 @app.route("/enhance_prompt", methods=["POST"])
 def enhance_prompt():
@@ -99,10 +102,10 @@ def api_check_balance():
 if __name__ == "__main__":
     # Print available routes for debugging
     try:
-        print("Registered routes:")
+        logger.info("Registered routes:")
         for rule in app.url_map.iter_rules():
             methods = ','.join(sorted(rule.methods))
-            print(f"{rule.rule} -> {methods}")
+            logger.info("%s -> %s", rule.rule, methods)
     except Exception as e:
-        print(f"Error listing routes: {e}")
+        logger.exception("Error listing routes")
     app.run(host='0.0.0.0', port=5000, debug=True)

@@ -8,6 +8,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const clearBtn = document.getElementById("clearKeyBtn");
   const checkBalanceBtn = document.getElementById("checkBalanceBtn");
   const balanceDisplay = document.getElementById("settingsBalanceDisplay");
+  const mainBalanceDisplay = document.getElementById("balanceDisplay");
   const STORAGE_KEY = "ask_ai_user_api_key";
 
   const statusEl = document.getElementById("settingsStatus");
@@ -36,92 +37,21 @@ document.addEventListener("DOMContentLoaded", () => {
   function show() {
     modal.classList.remove("hidden");
     modal.classList.add("flex");
-    input.focus();
+    try {
+      input.focus();
+    } catch (e) {
+      /* ignore focus errors */
+    }
   }
 
-  // basic hide implementation used internally
-  const hideOriginal = () => {
-    modal.classList.add("hidden");
-    modal.classList.remove("flex");
-  };
-
-  // When hiding the modal, clear/hide any status or inline validation
-  // messages so they don't persist after close. Messages should remain
-  // visible while the modal is open until the user corrects them.
-  const clearMessages = () => {
-    try {
-      if (keyValidationEl) {
-        keyValidationEl.classList.add("sr-only");
-      }
-      if (statusEl) {
-        statusEl.classList.add("sr-only");
-      }
-      if (balanceDisplay) {
-        balanceDisplay.innerHTML =
-          '<span class="text-gray-500">Balance will appear here after checking</span>';
-        balanceDisplay.className =
-          "mt-3 p-3 bg-gray-50 rounded border border-gray-200 min-h-[2rem] text-sm font-medium";
-      }
-    } catch (e) {
-      console.debug("Could not clear settings messages", e);
-    }
-  };
-
-  // update hide to clear messages on close
   function hide() {
-    hideOriginal();
-    clearMessages();
-  }
-
-  // load existing
-  try {
-    let existing = "";
     try {
-      existing = localStorage.getItem(STORAGE_KEY) || "";
+      modal.classList.remove("flex");
+      modal.classList.add("hidden");
     } catch (e) {
-      // localStorage may be unavailable (private mode / blocked). Try sessionStorage.
-      try {
-        existing = sessionStorage.getItem(STORAGE_KEY) || "";
-      } catch (e2) {
-        console.debug("Could not read stored API key from storage", e, e2);
-      }
-    }
-    input.value = existing;
-  } catch (e) {
-    console.debug("Could not read stored API key", e);
-  }
-
-  // clear inline validation as user types (assumes user is attempting to
-  // correct the issue). Do not auto-clear the global status (which may
-  // contain higher-level information) unless explicitly validated.
-  if (input) {
-    input.addEventListener("input", () => {
-      try {
-        if (keyValidationEl && input.value.trim() !== "") {
-          keyValidationEl.classList.add("sr-only");
-        }
-        // Enable/disable balance button based on whether there's an API key
-        if (checkBalanceBtn) {
-          checkBalanceBtn.disabled = !input.value.trim();
-        }
-      } catch (e) {}
-    });
-    // Initial check to enable/disable balance button
-    if (checkBalanceBtn) {
-      checkBalanceBtn.disabled = !input.value.trim();
+      /* ignore hide errors */
     }
   }
-
-  if (openBtn)
-    openBtn.addEventListener("click", (e) => {
-      e.preventDefault();
-      show();
-    });
-  if (cancelBtn)
-    cancelBtn.addEventListener("click", (e) => {
-      e.preventDefault();
-      hide();
-    });
 
   if (saveBtn)
     saveBtn.addEventListener("click", (e) => {
@@ -175,6 +105,36 @@ document.addEventListener("DOMContentLoaded", () => {
         showStatus("Failed to save API key — unexpected error.", "error");
       }
     });
+  // open/cancel buttons
+  if (openBtn) {
+    openBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      // populate input with stored key if available
+      try {
+        const v =
+          localStorage.getItem(STORAGE_KEY) ||
+          sessionStorage.getItem(STORAGE_KEY) ||
+          "";
+        input.value = v;
+      } catch (e) {}
+      // set check button state
+      if (checkBalanceBtn) checkBalanceBtn.disabled = !input.value.trim();
+      show();
+    });
+  }
+  if (cancelBtn) {
+    cancelBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      hide();
+    });
+  }
+
+  // enable/disable Check Balance button based on input
+  if (input && checkBalanceBtn) {
+    input.addEventListener("input", () => {
+      checkBalanceBtn.disabled = !input.value.trim();
+    });
+  }
   if (clearBtn)
     clearBtn.addEventListener("click", async (e) => {
       e.preventDefault();
@@ -290,17 +250,29 @@ document.addEventListener("DOMContentLoaded", () => {
           const balance = data.balance;
           let displayText = "";
 
-          if (typeof balance === "object" && balance !== null) {
-            // Format the balance data nicely
-            if (balance.pollen !== undefined) {
-              displayText = `<div class="text-green-700"><span class="text-2xl font-bold">${balance.pollen.toFixed(2)}</span> pollen</div>`;
+          // normalize common numeric keys (pollen, balance, amount)
+          let numeric = null;
+          try {
+            if (balance && typeof balance === "object") {
+              if (typeof balance.pollen === "number") numeric = balance.pollen;
+              else if (typeof balance.balance === "number")
+                numeric = balance.balance;
+              else if (typeof balance.amount === "number")
+                numeric = balance.amount;
+            } else if (typeof balance === "number") {
+              numeric = balance;
             }
-            if (balance.tier) {
+          } catch (e) {}
+
+          if (numeric !== null) {
+            displayText = `<div class="text-green-700"><span class="text-2xl font-bold">${numeric.toFixed(4)}</span> pollen</div>`;
+            if (balance && balance.tier)
               displayText += `<div class="text-xs text-gray-600 mt-1">Tier: ${balance.tier}</div>`;
-            }
-            if (balance.tier_pollen !== undefined) {
+            if (balance && typeof balance.tier_pollen === "number")
               displayText += `<div class="text-xs text-gray-600">Tier balance: ${balance.tier_pollen.toFixed(2)}</div>`;
-            }
+          } else if (typeof balance === "object" && balance !== null) {
+            // fallback to showing object contents
+            displayText = `<pre class="text-sm text-green-700">${JSON.stringify(balance, null, 2)}</pre>`;
           } else {
             displayText = `<span class="text-green-700">${JSON.stringify(balance)}</span>`;
           }
@@ -310,12 +282,34 @@ document.addEventListener("DOMContentLoaded", () => {
             balanceDisplay.className =
               "mt-3 p-3 bg-green-50 rounded border border-green-200 min-h-[2rem] text-sm";
           }
+          // also update main page indicator if present
+          try {
+            if (mainBalanceDisplay) {
+              if (numeric !== null) {
+                mainBalanceDisplay.textContent = `Balance: ${numeric.toFixed(4)} pollen`;
+                mainBalanceDisplay.className =
+                  "text-sm text-green-700 font-semibold";
+              } else if (typeof balance === "object") {
+                mainBalanceDisplay.textContent = `Balance: ${JSON.stringify(balance)}`;
+                mainBalanceDisplay.className =
+                  "text-sm text-green-700 font-semibold";
+              } else {
+                mainBalanceDisplay.textContent = `Balance: ${String(balance)}`;
+                mainBalanceDisplay.className =
+                  "text-sm text-green-700 font-semibold";
+              }
+            }
+          } catch (e) {}
         } else if (res.status === 401) {
           if (balanceDisplay) {
             balanceDisplay.innerHTML =
               '<span class="text-red-600">❌ Unauthorized - Invalid API key</span>';
             balanceDisplay.className =
               "mt-3 p-3 bg-red-50 rounded border border-red-200 min-h-[2rem] text-sm font-medium";
+          }
+          if (mainBalanceDisplay) {
+            mainBalanceDisplay.textContent = "Balance: Invalid API key";
+            mainBalanceDisplay.className = "text-sm text-red-600";
           }
         } else if (res.status === 403) {
           if (balanceDisplay) {
@@ -326,6 +320,10 @@ document.addEventListener("DOMContentLoaded", () => {
             balanceDisplay.className =
               "mt-3 p-3 bg-red-50 rounded border border-red-200 min-h-[2rem] text-sm font-medium";
           }
+          if (mainBalanceDisplay) {
+            mainBalanceDisplay.textContent = `Balance: ${data.error || "Permission denied"}`;
+            mainBalanceDisplay.className = "text-sm text-red-600";
+          }
         } else {
           if (balanceDisplay) {
             balanceDisplay.innerHTML =
@@ -334,6 +332,10 @@ document.addEventListener("DOMContentLoaded", () => {
               "</span>";
             balanceDisplay.className =
               "mt-3 p-3 bg-red-50 rounded border border-red-200 min-h-[2rem] text-sm font-medium";
+          }
+          if (mainBalanceDisplay) {
+            mainBalanceDisplay.textContent = `Balance: ${data.error || `unavailable`}`;
+            mainBalanceDisplay.className = "text-sm text-gray-500";
           }
         }
       } catch (err) {
