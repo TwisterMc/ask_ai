@@ -313,9 +313,22 @@ async function fetchModels() {
       // Group models by tier — authoritative: use `paid_only` from the API. No inference from names/pricing.
       const tierMap = {};
 
+      // Exclude known video-only models from the image generator dropdown.
+      // Rely on authoritative `paid_only` for tiering, but do not include models
+      // whose capabilities indicate `video` for the image page.
+      const CLIENT_VIDEO_MODELS = new Set(["veo", "seedance", "seedance-pro"]);
       data.models.forEach((m) => {
         try {
           const name = (m.name || m.id || String(m)).toString();
+
+          // If the model explicitly advertises video capability, skip it for the image UI.
+          const caps = m.capabilities || m.capability || m.type || null;
+          const hasVideoCap =
+            (Array.isArray(caps) && caps.includes("video")) ||
+            (typeof caps === "string" && /video/i.test(caps)) ||
+            CLIENT_VIDEO_MODELS.has((name || "").toString().toLowerCase());
+          if (hasVideoCap) return; // skip video-capable model for image selector
+
           const label = (
             m.displayName ||
             m.name ||
@@ -431,12 +444,17 @@ async function fetchModels() {
       appendGroupLabelled("Regular", regularItems);
       appendGroupLabelled("Pro", proItems);
 
-      // restore saved selection if present
+      // No automatic cheapest-selection — default to the first option unless the user saved a preference.
+      // Saved selection still takes precedence.
+
+      // restore saved selection if present (saved takes precedence)
       if (saved) {
         try {
           sel.value = saved;
         } catch (e) {}
       }
+
+      // final fallback: select the first option
       if (!sel.value && sel.options.length) sel.selectedIndex = 0;
       return; // done with API path
     }
@@ -452,6 +470,10 @@ async function fetchModels() {
         console.debug(
           "fetchModels: DOM already has optgroups — keeping server-rendered options",
         );
+      // Default to the first server-rendered option when there's no saved setting.
+      if (!saved && sel.options.length) {
+        sel.selectedIndex = 0;
+      }
       return;
     }
 
@@ -710,20 +732,37 @@ async function generateImage() {
     console.debug &&
       console.debug("Generation response:", { status: response.status, data });
 
-    if (data.success) {
-      img.src = data.url;
-      img.alt = `AI generated image based on prompt: ${prompt}`;
-      currentImagePrompt = prompt; // Store the prompt for download
+    if (!data.success) {
+      throw new Error(data.error || "Failed to generate media");
+    }
+
+    // If the server returned a video (model produced video), handle gracefully.
+    if (
+      data.type === "video" ||
+      (typeof data.url === "string" &&
+        /\.mp4$|^https?:.*\/(?:static\/generated_videos)\/.+$/i.test(data.url))
+    ) {
+      // Provide user-facing guidance instead of trying to show the video in the image slot.
       result.classList.remove("hidden");
-      // Wait for the image to load before scrolling
-      img.onload = () => {
-        result.scrollIntoView({ behavior: "smooth", block: "nearest" });
-      };
+      result.innerHTML = `\n        <div class="text-sm text-yellow-600 font-semibold mb-2">The selected model produced a video, not an image.</div>\n        <a class="inline-block text-blue-600 underline" href="${data.url}" target="_blank" rel="noopener">Open generated video</a>\n      `;
+      // Store URL so downloadImage() or other UI can still reference it if needed
+      currentImagePrompt = prompt;
       // Refresh balance after successful generation
       fetchBalance();
-    } else {
-      throw new Error(data.error || "Failed to generate image");
+      return;
     }
+
+    // Otherwise assume it's an image (data.url is a data: or image URL)
+    img.src = data.url;
+    img.alt = `AI generated image based on prompt: ${prompt}`;
+    currentImagePrompt = prompt; // Store the prompt for download
+    result.classList.remove("hidden");
+    // Wait for the image to load before scrolling
+    img.onload = () => {
+      result.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    };
+    // Refresh balance after successful generation
+    fetchBalance();
   } catch (err) {
     showError(err.message);
   } finally {
