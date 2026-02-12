@@ -482,12 +482,22 @@ async function generateImage() {
     };
 
     // Add seed if in fixed mode and has a value
+    // Determine seed: use fixed seed when provided, otherwise generate a random seed
+    let seedToSend = null;
     if (seedMode === "fixed" && seedValue) {
-      requestBody.seed = parseInt(seedValue);
+      seedToSend = parseInt(seedValue);
+    } else {
+      // generate a 32-bit positive integer seed for reproducibility
+      seedToSend = Math.floor(Math.random() * 2147483647);
+    }
+    if (seedToSend !== null && !Number.isNaN(seedToSend)) {
+      requestBody.seed = seedToSend;
     }
 
     console.debug && console.debug("Sending request with style:", style);
     console.debug && console.debug("Full request body:", requestBody);
+    // Explicitly log the seed being sent so you can verify it in the console/network
+    console.debug && console.debug("Seed sent:", requestBody.seed);
 
     const headers = { "Content-Type": "application/json" };
     try {

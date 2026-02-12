@@ -366,6 +366,19 @@ def generate_image_api(request):
         size = data.get("size", "1024x1024")
         negative_prompt = data.get("negative_prompt", "")
         seed = data.get("seed", None)
+        # Normalize seed: accept integers only, ignore empty strings or invalid values
+        try:
+            if seed is None:
+                seed = None
+            elif isinstance(seed, str) and seed.strip() == "":
+                seed = None
+            else:
+                # coerce to int when possible
+                seed = int(seed)
+        except Exception:
+            seed = None
+        if seed is not None:
+            logger.debug("Using fixed seed: %s", seed)
         
         logger.debug("[GENERATE] Received request - prompt: %s, style: %s, model: %s", prompt[:50], style, model)
         
