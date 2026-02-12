@@ -113,6 +113,7 @@ async function fetchBalance() {
 
     if (res.status === 200 && data.success) {
       const balance = data.balance;
+      console.debug && console.debug("fetchBalance: raw balance", balance);
       let displayText = "";
       // normalize common keys
       let numeric = null;
@@ -168,8 +169,15 @@ function toggleSeedInput() {
 
 // Set up button event listeners
 document.addEventListener("DOMContentLoaded", () => {
-  // Load saved settings and set up listeners
-  loadFormSettings();
+  // Prevent dropdown flicker: hide model select until models are resolved
+  const modelSel = document.getElementById("model");
+  if (modelSel) modelSel.classList.add("opacity-0");
+
+  // Fetch models from backend, then load saved settings and set up listeners
+  fetchModels().finally(() => {
+    loadFormSettings();
+    if (modelSel) modelSel.classList.remove("opacity-0");
+  });
   updateHistoryDisplay();
   checkAndUpdateApiKeyStatus();
 
@@ -272,6 +280,192 @@ function toggleHistory() {
 
   // Update ARIA state
   button.setAttribute("aria-expanded", (!isExpanded).toString());
+}
+
+/**
+ * Fetch available models from the server and populate the #model select.
+ */
+async function fetchModels() {
+  console.debug && console.debug("fetchModels: start");
+  try {
+    const res = await fetch("/api/models", { method: "GET" });
+    const data = await res.json();
+    console.debug &&
+      console.debug("fetchModels: API /api/models response", data);
+    if (res.status === 200 && data.success && Array.isArray(data.models)) {
+      const sel = document.getElementById("model");
+      if (!sel) return;
+
+      // remember currently selected value or saved value
+      let saved = null;
+      try {
+        const settings = JSON.parse(
+          localStorage.getItem("formSettings") || "{}",
+        );
+        saved = settings.model;
+      } catch (e) {
+        saved = null;
+      }
+
+      // clear existing options
+      sel.innerHTML = "";
+
+      // Group models by tier — authoritative: use `paid_only` from the API. No inference from names/pricing.
+      const tierMap = {};
+
+      data.models.forEach((m) => {
+        try {
+          const name = (m.name || m.id || String(m)).toString();
+          const label = (
+            m.displayName ||
+            m.name ||
+            (m.aliases && m.aliases[0]) ||
+            name
+          ).toString();
+          const pricing = m.pricing || null;
+
+          // Tier classification is authoritative from `paid_only` per API docs.
+          // Use only paid_only to determine grouping (pro vs regular); do NOT infer from name/pricing.
+          let tierRaw = m.paid_only === true ? "pro" : "regular";
+
+          const item = { name, label, pricing, raw: m, tier: tierRaw };
+          if (!tierMap[tierRaw]) tierMap[tierRaw] = [];
+          tierMap[tierRaw].push(item);
+        } catch (err) {
+          // skip bad model entries
+          console.debug && console.debug("Skipping invalid model entry", err);
+        }
+      });
+
+      function titleCase(s) {
+        return s
+          .replace(/(^|_|-)([a-z])/g, (m, p1, p2) => p2.toUpperCase())
+          .replace(/_/g, " ");
+      }
+
+      // Build two buckets: non-pro => Regular, pro => Pro
+      function priceGlyph(pricing) {
+        if (!pricing) return null; // unknown => show 'Paid' fallback
+        const keys = [
+          "pollen_per_image",
+          "amount",
+          "pollen_per_1k_tokens",
+          "pollen_per_token",
+          "price",
+        ];
+        let num = null;
+        for (const k of keys) {
+          if (Object.prototype.hasOwnProperty.call(pricing, k)) {
+            const v = pricing[k];
+            const vnum =
+              typeof v === "number"
+                ? v
+                : typeof v === "string"
+                  ? parseFloat(v)
+                  : NaN;
+            if (!Number.isNaN(vnum)) {
+              num = vnum;
+              break;
+            }
+          }
+        }
+        if (
+          num === null &&
+          typeof pricing.estimated_total !== "undefined" &&
+          pricing.estimated_total !== null
+        ) {
+          const e = pricing.estimated_total;
+          num =
+            typeof e === "number"
+              ? e
+              : typeof e === "string"
+                ? parseFloat(e)
+                : NaN;
+          if (Number.isNaN(num)) num = null;
+        }
+        // If no numeric pricing is available but a pricing object exists, assume paid (default to '$$')
+        if (num === null) return "$$";
+        if (num <= 0) return "Free";
+        if (num < 0.01) return "$";
+        if (num < 0.1) return "$$";
+        if (num < 1) return "$$$";
+        return "$$$$";
+      }
+
+      const regularItems = [];
+      const proItems = [];
+      Object.keys(tierMap).forEach((t) => {
+        (tierMap[t] || []).forEach((it) => {
+          // Authoritative grouping: only use the model's `tier` (set from paid_only).
+          const isPro = (it.tier || "").toString().toLowerCase() === "pro";
+          if (isPro) proItems.push(it);
+          else regularItems.push(it);
+        });
+      });
+
+      console.debug &&
+        console.debug("fetchModels: grouped counts", {
+          regular: regularItems.length,
+          pro: proItems.length,
+        });
+
+      function appendGroupLabelled(title, items) {
+        if (!items || !items.length) return;
+        const group = document.createElement("optgroup");
+        group.label = `${title} (group)`;
+        items.forEach((it) => {
+          const opt = document.createElement("option");
+          opt.value = it.name;
+          const glyph = priceGlyph(it.pricing);
+          let text = it.label || it.name;
+          if (glyph === "Free") text += " (Free)";
+          else if (glyph) text += ` (${glyph})`;
+          else text += ` (Paid)`;
+          opt.textContent = text;
+          group.appendChild(opt);
+        });
+        sel.appendChild(group);
+      }
+
+      // Render Regular first, then Pro
+      appendGroupLabelled("Regular", regularItems);
+      appendGroupLabelled("Pro", proItems);
+
+      // restore saved selection if present
+      if (saved) {
+        try {
+          sel.value = saved;
+        } catch (e) {}
+      }
+      if (!sel.value && sel.options.length) sel.selectedIndex = 0;
+      return; // done with API path
+    }
+
+    // --- fallback: if DOM already contains optgroups (server-rendered), leave them alone ---
+    const sel = document.getElementById("model");
+    if (
+      sel &&
+      sel.querySelectorAll &&
+      sel.querySelectorAll("optgroup").length
+    ) {
+      console.debug &&
+        console.debug(
+          "fetchModels: DOM already has optgroups — keeping server-rendered options",
+        );
+      return;
+    }
+
+    // If API returned no models and the DOM does not already contain optgroups,
+    // do NOT attempt to infer `paid_only` from names/labels/pricing. Leave the
+    // existing flat <option> list unchanged so we do not perform string parsing.
+    console.debug &&
+      console.debug(
+        "fetchModels: API returned no models — leaving existing options unchanged (no inference)",
+      );
+    return;
+  } catch (err) {
+    console.debug && console.debug("Failed to fetch models:", err);
+  }
 }
 
 /**

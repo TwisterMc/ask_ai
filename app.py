@@ -1,8 +1,13 @@
 from flask import Flask, render_template, request, jsonify
 from urllib.parse import quote
-from generators import enhance_prompt_api, generate_image_api, estimate_price_api, chat_api
+from generators import (
+    enhance_prompt_api,
+    generate_image_api,
+    estimate_price_api,
+    chat_api,
+)
 from generators import estimate_chat_price_api
-from generators import validate_api_key, check_balance_api
+from generators import validate_api_key, check_balance_api, get_models_api
 import os
 
 # Load environment variables from .env file (for local development)
@@ -95,6 +100,11 @@ def api_validate_key():
 @app.route('/api/check_balance', methods=['POST'])
 def api_check_balance():
     return check_balance_api(request)
+
+
+@app.route('/api/models', methods=['GET'])
+def api_models():
+    return get_models_api(request)
 
 
 

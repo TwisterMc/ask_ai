@@ -18,6 +18,9 @@ logger = logging.getLogger(__name__)
 # simple in-memory cache for model pricing: { model_key: (timestamp, value) }
 _PRICING_CACHE = {}
 _PRICING_CACHE_TTL = 60  # seconds
+# simple in-memory cache for models list
+_MODELS_CACHE = {}
+_MODELS_CACHE_TTL = 300  # seconds
 
 
 def chat_api(request):
@@ -142,7 +145,7 @@ def validate_api_key(request):
     Expects an Authorization header to be forwarded by the client. Returns 200/403 with parsed message.
     """
     try:
-        models_url = f"{API_CONFIG['IMAGE_API']}models"
+        models_url = API_CONFIG.get('MODELS_API', f"{API_CONFIG['IMAGE_API']}models")
         headers = {}
         try:
             incoming_auth = request.headers.get('Authorization')
@@ -217,7 +220,7 @@ def get_model_pricing(model_name, request_obj=None):
     If `request_obj` is provided, prefer an Authorization header from it (so user's API key can be forwarded).
     """
     try:
-        models_url = f"{API_CONFIG['IMAGE_API']}models"
+        models_url = API_CONFIG.get('MODELS_API', f"{API_CONFIG['IMAGE_API']}models")
         h = {}
         # prefer an Authorization header supplied in the incoming request (client-side API key)
         incoming_auth = None
@@ -268,6 +271,44 @@ def get_model_pricing(model_name, request_obj=None):
     except Exception:
         pass
     return None
+
+
+def get_models_api(request_obj=None):
+    """Fetch the models list from the upstream API and return a JSON response.
+    If `request_obj` is provided, prefer its Authorization header so BYOP works.
+    Caches the models list for a short TTL to avoid frequent upstream calls.
+    """
+    try:
+        now = time.time()
+        cached = _MODELS_CACHE.get('models')
+        if cached and (now - cached[0]) < _MODELS_CACHE_TTL:
+            return jsonify({"success": True, "models": cached[1]})
+
+        models_url = f"{API_CONFIG['IMAGE_API']}models"
+        headers = {"Content-Type": "application/json"}
+        incoming_auth = None
+        try:
+            if request_obj is not None:
+                incoming_auth = request_obj.headers.get('Authorization')
+        except Exception:
+            incoming_auth = None
+        if incoming_auth:
+            headers['Authorization'] = incoming_auth
+
+        r = requests.get(models_url, headers=headers, timeout=10)
+        if r.status_code == 200:
+            items = r.json()
+            # cache the raw list
+            _MODELS_CACHE['models'] = (now, items)
+            return jsonify({"success": True, "models": items})
+        elif r.status_code == 403:
+            msg = _parse_api_error(r)
+            return jsonify({"success": False, "error": msg}), 403
+        else:
+            return jsonify({"success": False, "error": f"Models fetch failed: status {r.status_code}"}), r.status_code
+    except Exception as e:
+        logger.exception("Error fetching models list")
+        return jsonify({"success": False, "error": f"Error fetching models: {str(e)}"})
 
 
 def _parse_api_error(resp):
