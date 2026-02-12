@@ -128,13 +128,6 @@ def chat_api(request):
         if isinstance(pricing, dict) and pricing.get('__api_forbidden'):
             return jsonify({"success": False, "error": f"API Error 403: {pricing.get('message')}"}), 403
 
-        # If pricing is None, provide fallback per-token rates for chat models
-        if pricing is None:
-            fallback_chat_rates = {'gpt-3': 0.00005, 'gpt-4': 0.0002}
-            rate = fallback_chat_rates.get((model or '').lower())
-            if rate:
-                pricing = {'pollen_per_token': rate, 'currency': 'pollen'}
-
         return jsonify({"success": True, "reply": reply_text, "pricing": pricing})
     except Exception as e:
         return jsonify({"success": False, "error": f"Unexpected error: {str(e)}"})
@@ -587,37 +580,25 @@ def generate_image_api(request):
             # Helper: fetch model pricing (best-effort)
             pricing = get_model_pricing(model, request)
 
-            # If pricing not available from API, provide fallback estimates for video models
-            if pricing is None:
-                if is_video_request:
-                    # Simple fallback rates (pollen per second)
-                    fallback_rates = {
-                        'veo': 0.5,
-                        'seedance': 0.3,
-                        'seedance-pro': 0.4
-                    }
-                    rate = fallback_rates.get((model or '').lower(), 0.25)
-                    pricing = {
-                        'pollen_per_second': rate,
-                        'currency': 'pollen'
-                    }
-                    if dur_val is not None:
-                        pricing['estimated_total'] = round(rate * dur_val, 4)
-                else:
-                    pricing = {'currency': 'pollen'}
             # attach a simple human-friendly estimate string if possible
             try:
                 if isinstance(pricing, dict):
-                    if pricing.get('estimated_total') is not None:
-                        pricing['estimate_text'] = f"Estimated: {pricing['estimated_total']} {pricing.get('currency','pollen')}"
+                    token_cost = None
+                    if isinstance(pricing.get('completionImageTokens'), (int, float)):
+                        token_cost = pricing.get('completionImageTokens')
+                    elif isinstance(pricing.get('promptImageTokens'), (int, float)):
+                        token_cost = pricing.get('promptImageTokens')
+                    elif isinstance(pricing.get('estimated_total'), (int, float)):
+                        token_cost = pricing.get('estimated_total')
+
+                    if token_cost is not None:
+                        pricing['estimated_total'] = token_cost
+                        pricing['estimate_text'] = (
+                            f"Estimated: {token_cost} "
+                            f"{pricing.get('currency','pollen')}"
+                        )
                     else:
-                        # sum numeric fields as a best-effort
-                        nums = [v for v in pricing.values() if isinstance(v, (int, float))]
-                        if nums:
-                            pricing['estimated_total'] = round(sum(nums), 4)
-                            pricing['estimate_text'] = f"Estimated: {pricing['estimated_total']} {pricing.get('currency','pollen')}"
-                        else:
-                            pricing['estimate_text'] = None
+                        pricing['estimate_text'] = None
             except Exception:
                 pass
 
@@ -686,71 +667,26 @@ def estimate_price_api(request):
         if isinstance(pricing, dict) and pricing.get('__api_forbidden'):
             return jsonify({"success": False, "error": f"API Error 403: {pricing.get('message')}"})
 
-        # fallback if no pricing
-        if pricing is None:
-            VIDEO_MODELS = {"veo", "seedance", "seedance-pro"}
-            if model and model.lower() in VIDEO_MODELS:
-                fallback_rates = {
-                    'veo': 0.5,
-                    'seedance': 0.3,
-                    'seedance-pro': 0.4
-                }
-                rate = fallback_rates.get((model or '').lower(), 0.25)
-                pricing = {'pollen_per_second': rate, 'currency': 'pollen'}
-                if dur_val is not None:
-                    pricing['estimated_total'] = round(rate * dur_val, 4)
-                    pricing['estimate_text'] = f"Estimated: {pricing['estimated_total']} {pricing['currency']}"
-        else:
-            # If pricing exists but doesn't contain estimate, try to compute
+        if pricing is not None:
+            # If pricing exists but doesn't contain estimate, only use image token costs
             try:
                 if isinstance(pricing, dict):
-                    if pricing.get('estimated_total') is None:
-                        nums = [v for v in pricing.values() if isinstance(v, (int, float))]
-                        if nums:
-                            pricing['estimated_total'] = round(sum(nums), 4)
-                            pricing['estimate_text'] = f"Estimated: {pricing['estimated_total']} {pricing.get('currency','pollen')}"
+                    token_cost = None
+                    if isinstance(pricing.get('completionImageTokens'), (int, float)):
+                        token_cost = pricing.get('completionImageTokens')
+                    elif isinstance(pricing.get('promptImageTokens'), (int, float)):
+                        token_cost = pricing.get('promptImageTokens')
+
+                    if token_cost is not None:
+                        pricing['estimated_total'] = token_cost
+                        pricing['estimate_text'] = (
+                            f"Estimated: {pricing['estimated_total']} "
+                            f"{pricing.get('currency','pollen')}"
+                        )
+                    else:
+                        pricing['estimate_text'] = None
             except Exception:
                 pass
-
-        # Apply multipliers based on size, quality, and guidance to make estimates reflect settings
-        try:
-            multiplier = 1.0
-            # size multiplier: scale by pixel area relative to 1024x1024
-            if size and isinstance(size, str) and 'x' in size:
-                try:
-                    w, h = map(int, size.split('x'))
-                    base_area = 1024 * 1024
-                    multiplier *= (w * h) / float(base_area)
-                except Exception:
-                    pass
-
-            # quality multiplier: map quality names to nominal step counts
-            if quality and isinstance(quality, str):
-                qmap = {'fast': 20, 'balanced': 30, 'detailed': 50, 'maximum': 75}
-                steps = qmap.get(quality.lower())
-                if steps:
-                    multiplier *= (steps / 30.0)
-
-            # guidance multiplier: scale linearly relative to 7.0 baseline
-            try:
-                g = float(guidance) if guidance is not None else None
-                if g is not None:
-                    baseline = 7.0
-                    if baseline > 0:
-                        multiplier *= (g / baseline)
-            except Exception:
-                pass
-
-            if isinstance(pricing, dict) and pricing.get('estimated_total') is not None:
-                est = float(pricing.get('estimated_total'))
-                adjusted = round(est * multiplier, 6)
-                pricing['estimated_total'] = adjusted
-                pricing['estimate_text'] = f"Estimated: {adjusted} {pricing.get('currency','pollen')}"
-            else:
-                # attempt to adjust numeric fields if any
-                nums = [k for k, v in (pricing.items() if isinstance(pricing, dict) else []) if isinstance(pricing.get(k), (int, float))]
-        except Exception:
-            pass
 
         return jsonify({"success": True, "pricing": pricing})
     except Exception as e:
@@ -775,26 +711,12 @@ def estimate_chat_price_api(request):
         if isinstance(pricing, dict) and pricing.get('__api_forbidden'):
             return jsonify({"success": False, "error": f"API Error 403: {pricing.get('message')}"}), 403
 
-        # compute estimate if possible
-        if pricing is None:
-            fallback_chat_rates = {'gpt-3': 0.00005, 'gpt-4': 0.0002}
-            rate = fallback_chat_rates.get((model or '').lower())
-            if rate and tokens is not None:
-                est = round(rate * tokens, 6)
-                pricing = {'pollen_per_token': rate, 'estimated_total': est, 'currency': 'pollen'}
-        else:
-            # If pricing contains a per-token rate, use it
-            if tokens is not None:
-                if 'pollen_per_token' in pricing:
-                    pricing['estimated_total'] = round(pricing['pollen_per_token'] * tokens, 6)
-                elif 'pollen_per_1k_tokens' in pricing:
-                    pricing['estimated_total'] = round(pricing['pollen_per_1k_tokens'] * (tokens / 1000.0), 6)
-                else:
-                    # sum numeric fields as a rough proxy scaled by tokens/1000
-                    nums = [v for v in pricing.values() if isinstance(v, (int, float))]
-                    if nums:
-                        base = round(sum(nums), 6)
-                        pricing['estimated_total'] = round(base * (tokens / 1000.0), 6)
+        # compute estimate only when API pricing provides per-token fields
+        if pricing is not None and tokens is not None:
+            if 'pollen_per_token' in pricing:
+                pricing['estimated_total'] = pricing['pollen_per_token'] * tokens
+            elif 'pollen_per_1k_tokens' in pricing:
+                pricing['estimated_total'] = pricing['pollen_per_1k_tokens'] * (tokens / 1000.0)
 
         return jsonify({"success": True, "pricing": pricing})
     except Exception as e:

@@ -14,13 +14,14 @@ let lastFocusableElement = null;
 
 /**
  * Saves the current form settings to localStorage
- * Persists model, style, size, quality, guidance, and seed settings
+ * Persists model, style, aspect ratio, base resolution, quality, guidance, and seed settings
  */
 function saveFormSettings() {
   const settings = {
     model: document.getElementById("model").value,
     style: document.getElementById("style").value,
-    size: document.getElementById("size").value,
+    baseResolution:
+      (document.getElementById("baseResolution") || {}).value || "1024",
     quality: document.getElementById("quality").value,
     guidance: document.getElementById("guidance").value,
     seedMode: document.getElementById("seed-mode").value,
@@ -71,13 +72,25 @@ function loadFormSettings() {
   // Always set values to ensure consistency, using saved settings or defaults
   document.getElementById("model").value = settings.model || "gptimage";
   document.getElementById("style").value = settings.style || "photographic";
-  document.getElementById("size").value = settings.size || "1024x1024";
+  const baseResolutionEl = document.getElementById("baseResolution");
+  const aspectRatioEl = document.getElementById("aspectRatio");
+
+  let baseResolution = settings.baseResolution || null;
+  let aspectRatio = settings.aspectRatio || null;
+  if ((!baseResolution || !aspectRatio) && settings.size) {
+    const legacy = parseLegacySize(settings.size);
+    if (legacy) {
+      baseResolution = baseResolution || legacy.baseResolution;
+      aspectRatio = aspectRatio || legacy.aspectRatio;
+    }
+  }
+
+  if (baseResolutionEl) baseResolutionEl.value = baseResolution || "1024";
   document.getElementById("quality").value = settings.quality || "balanced";
   document.getElementById("guidance").value = settings.guidance || "7.0";
   document.getElementById("seed-mode").value = settings.seedMode || "random";
   // restore aspect ratio when available (default 1:1)
-  const arEl = document.getElementById("aspectRatio");
-  if (arEl) arEl.value = settings.aspectRatio || "1:1";
+  if (aspectRatioEl) aspectRatioEl.value = aspectRatio || "1:1";
 
   // Update guidance value display
   document.getElementById("guidance-value").textContent =
@@ -85,6 +98,79 @@ function loadFormSettings() {
 
   // Update seed input state
   toggleSeedInput();
+}
+
+const IMAGE_ASPECT_RATIOS = {
+  "1:1": { w: 1, h: 1 },
+  "16:9": { w: 16, h: 9 },
+  "9:16": { w: 9, h: 16 },
+};
+
+const IMAGE_BASE_OPTIONS = [512, 768, 1024, 1536];
+
+function pickClosestBase(value) {
+  const num = parseInt(value, 10);
+  if (!num || Number.isNaN(num)) return 1024;
+  return IMAGE_BASE_OPTIONS.reduce((closest, current) =>
+    Math.abs(current - num) < Math.abs(closest - num) ? current : closest,
+  );
+}
+
+function pickClosestAspectRatio(width, height) {
+  if (!width || !height) return "1:1";
+  const ratio = width / height;
+  let bestKey = "1:1";
+  let bestDiff = Infinity;
+  Object.entries(IMAGE_ASPECT_RATIOS).forEach(([key, val]) => {
+    const target = val.w / val.h;
+    const diff = Math.abs(ratio - target);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      bestKey = key;
+    }
+  });
+  return bestKey;
+}
+
+function parseLegacySize(size) {
+  try {
+    const [w, h] = String(size)
+      .split("x")
+      .map((v) => parseInt(v, 10));
+    if (!w || !h) return null;
+    return {
+      baseResolution: String(pickClosestBase(Math.max(w, h))),
+      aspectRatio: pickClosestAspectRatio(w, h),
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
+function computeImageSizeFromControls() {
+  const arEl = document.getElementById("aspectRatio");
+  const baseEl = document.getElementById("baseResolution");
+  if (!arEl || !baseEl) return null;
+
+  const ratioKey = arEl.value in IMAGE_ASPECT_RATIOS ? arEl.value : "1:1";
+  const ratio = IMAGE_ASPECT_RATIOS[ratioKey];
+  const base = pickClosestBase(baseEl.value);
+
+  let width = base;
+  let height = base;
+  if (ratioKey === "16:9") {
+    width = base;
+    height = Math.round((base * ratio.h) / ratio.w);
+  } else if (ratioKey === "9:16") {
+    width = Math.round((base * ratio.w) / ratio.h);
+    height = base;
+  }
+
+  return {
+    width,
+    height,
+    size: `${width}x${height}`,
+  };
 }
 
 /**
@@ -199,12 +285,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // set up dynamic image estimate fetching (if imageEstimate element exists)
   const imageEstimateEl = document.getElementById("imageEstimate");
+  const formatSporeValue = (value) => {
+    const num = typeof value === "number" ? value : parseFloat(value);
+    if (!Number.isFinite(num)) return String(value);
+    return num.toFixed(8);
+  };
 
   if (imageEstimateEl) {
     async function fetchImageEstimate() {
       try {
         const model = document.getElementById("model").value;
-        const size = document.getElementById("size").value;
+        const sizeInfo = computeImageSizeFromControls();
+        const size = sizeInfo ? sizeInfo.size : "1024x1024";
         const quality = document.getElementById("quality").value;
         const guidance = document.getElementById("guidance").value;
 
@@ -223,13 +315,15 @@ document.addEventListener("DOMContentLoaded", () => {
         if (data && data.success && data.pricing) {
           const p = data.pricing;
           let friendly = null;
-          if (p.estimate_text) {
-            friendly = p.estimate_text.replace(/^\s*Estimated:\s*/i, "");
-          } else if (
+          if (
             typeof p.estimated_total !== "undefined" &&
             p.estimated_total !== null
           ) {
-            friendly = `${p.estimated_total} ${p.currency || ""}`.trim();
+            friendly = `${formatSporeValue(p.estimated_total)} ${
+              p.currency || ""
+            }`.trim();
+          } else if (p.estimate_text) {
+            friendly = p.estimate_text.replace(/^\s*Estimated:\s*/i, "");
           } else {
             const keys = [
               "completionImageTokens",
@@ -256,10 +350,12 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    ["model", "size", "quality", "guidance", "aspectRatio"].forEach((id) => {
-      const el = document.getElementById(id);
-      if (el) el.addEventListener("change", fetchImageEstimate);
-    });
+    ["model", "aspectRatio", "baseResolution", "quality", "guidance"].forEach(
+      (id) => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener("change", fetchImageEstimate);
+      },
+    );
 
     // Fetch initial estimate and balance after a brief delay to ensure form values are fully loaded
     setTimeout(() => {
@@ -317,9 +413,7 @@ async function fetchModels() {
       // Group models by tier — authoritative: use `paid_only` from the API. No inference from names/pricing.
       const tierMap = {};
 
-      // Exclude known video-only models from the image generator dropdown.
-      // Rely on authoritative `paid_only` for tiering, but do not include models
-      // whose capabilities indicate `video` for the image page.
+      // Identify video-capable models for separate grouping.
       const CLIENT_VIDEO_MODELS = new Set(["veo", "seedance", "seedance-pro"]);
       data.models.forEach((m) => {
         try {
@@ -327,11 +421,14 @@ async function fetchModels() {
 
           // If the model explicitly advertises video capability, skip it for the image UI.
           const caps = m.capabilities || m.capability || m.type || null;
+          const outputModalities = m.output_modalities || m.outputModalities;
           const hasVideoCap =
+            (Array.isArray(outputModalities) &&
+              outputModalities.includes("video")) ||
             (Array.isArray(caps) && caps.includes("video")) ||
             (typeof caps === "string" && /video/i.test(caps)) ||
             CLIENT_VIDEO_MODELS.has((name || "").toString().toLowerCase());
-          if (hasVideoCap) return; // skip video-capable model for image selector
+          const isVideo = !!hasVideoCap;
 
           const label = (
             m.displayName ||
@@ -345,7 +442,7 @@ async function fetchModels() {
           // Use only paid_only to determine grouping (pro vs regular); do NOT infer from name/pricing.
           let tierRaw = m.paid_only === true ? "pro" : "regular";
 
-          const item = { name, label, pricing, raw: m, tier: tierRaw };
+          const item = { name, label, pricing, raw: m, tier: tierRaw, isVideo };
           if (!tierMap[tierRaw]) tierMap[tierRaw] = [];
           tierMap[tierRaw].push(item);
         } catch (err) {
@@ -361,16 +458,19 @@ async function fetchModels() {
       }
 
       // Build two buckets: non-pro => Regular, pro => Pro
-      function priceGlyph(pricing) {
-        if (!pricing) return null; // unknown => show 'Paid' fallback
+      function getPricingValue(pricing) {
+        if (!pricing) return null;
         const keys = [
+          "completionVideoTokens",
+          "completionVideoSeconds",
+          "completionImageTokens",
+          "promptImageTokens",
           "pollen_per_image",
           "amount",
           "pollen_per_1k_tokens",
           "pollen_per_token",
           "price",
         ];
-        let num = null;
         for (const k of keys) {
           if (Object.prototype.hasOwnProperty.call(pricing, k)) {
             const v = pricing[k];
@@ -380,43 +480,27 @@ async function fetchModels() {
                 : typeof v === "string"
                   ? parseFloat(v)
                   : NaN;
-            if (!Number.isNaN(vnum)) {
-              num = vnum;
-              break;
-            }
+            if (!Number.isNaN(vnum) && vnum > 0) return vnum;
           }
         }
-        if (
-          num === null &&
-          typeof pricing.estimated_total !== "undefined" &&
-          pricing.estimated_total !== null
-        ) {
-          const e = pricing.estimated_total;
-          num =
-            typeof e === "number"
-              ? e
-              : typeof e === "string"
-                ? parseFloat(e)
-                : NaN;
-          if (Number.isNaN(num)) num = null;
-        }
-        // If no numeric pricing is available but a pricing object exists, assume paid (default to '$$')
-        if (num === null) return "$$";
-        if (num <= 0) return "Free";
-        if (num < 0.01) return "$";
-        if (num < 0.1) return "$$";
-        if (num < 1) return "$$$";
-        return "$$$$";
+        return null;
       }
 
       const regularItems = [];
+      const regularVideoItems = [];
       const proItems = [];
+      const proVideoItems = [];
       Object.keys(tierMap).forEach((t) => {
         (tierMap[t] || []).forEach((it) => {
           // Authoritative grouping: only use the model's `tier` (set from paid_only).
           const isPro = (it.tier || "").toString().toLowerCase() === "pro";
-          if (isPro) proItems.push(it);
-          else regularItems.push(it);
+          if (isPro) {
+            if (it.isVideo) proVideoItems.push(it);
+            else proItems.push(it);
+          } else {
+            if (it.isVideo) regularVideoItems.push(it);
+            else regularItems.push(it);
+          }
         });
       });
 
@@ -426,27 +510,58 @@ async function fetchModels() {
           pro: proItems.length,
         });
 
+      const priceValues = [];
+      [
+        ...regularItems,
+        ...regularVideoItems,
+        ...proItems,
+        ...proVideoItems,
+      ].forEach((it) => {
+        const value = getPricingValue(it.pricing);
+        if (typeof value === "number" && value > 0) priceValues.push(value);
+      });
+      priceValues.sort((a, b) => a - b);
+
+      function percentile(values, p) {
+        if (!values.length) return null;
+        const idx = Math.floor((values.length - 1) * p);
+        return values[Math.min(Math.max(idx, 0), values.length - 1)];
+      }
+
+      const tier25 = percentile(priceValues, 0.25);
+      const tier50 = percentile(priceValues, 0.5);
+      const tier75 = percentile(priceValues, 0.75);
+
+      function priceGlyphFromValue(value) {
+        if (value === null || tier25 === null) return null;
+        if (value <= tier25) return "$";
+        if (value <= tier50) return "$$";
+        if (value <= tier75) return "$$$";
+        return "$$$$";
+      }
+
       function appendGroupLabelled(title, items) {
         if (!items || !items.length) return;
         const group = document.createElement("optgroup");
-        group.label = `${title} (group)`;
+        group.label = title;
         items.forEach((it) => {
           const opt = document.createElement("option");
           opt.value = it.name;
-          const glyph = priceGlyph(it.pricing);
+          const value = getPricingValue(it.pricing);
+          const glyph = priceGlyphFromValue(value);
           let text = it.label || it.name;
-          if (glyph === "Free") text += " (Free)";
-          else if (glyph) text += ` (${glyph})`;
-          else text += ` (Paid)`;
+          if (glyph) text += ` (${glyph})`;
           opt.textContent = text;
           group.appendChild(opt);
         });
         sel.appendChild(group);
       }
 
-      // Render Regular first, then Pro
+      // Render Regular, Regular Video, Pro, Pro Video
       appendGroupLabelled("Regular", regularItems);
+      appendGroupLabelled("Regular Video", regularVideoItems);
       appendGroupLabelled("Pro", proItems);
+      appendGroupLabelled("Pro Video", proVideoItems);
 
       // No automatic cheapest-selection — default to the first option unless the user saved a preference.
       // Saved selection still takes precedence.
@@ -626,7 +741,8 @@ function setFormControlsDisabled(disabled) {
     "prompt",
     "model",
     "style",
-    "size",
+    "aspectRatio",
+    "baseResolution",
     "quality",
     "guidance",
   ].map((id) => document.getElementById(id));
@@ -686,7 +802,8 @@ async function generateImage() {
 
     const style = document.getElementById("style").value;
     const model = document.getElementById("model").value;
-    const size = document.getElementById("size").value;
+    const sizeInfo = computeImageSizeFromControls();
+    const size = sizeInfo ? sizeInfo.size : "1024x1024";
     const quality = document.getElementById("quality").value;
     const guidance = document.getElementById("guidance").value;
     const seedMode = document.getElementById("seed-mode").value;
@@ -700,11 +817,6 @@ async function generateImage() {
       quality,
       guidance,
     };
-
-    // Include optional aspectRatio if the control exists on the page (video page provides this).
-    const aspectRatioEl = document.getElementById("aspectRatio");
-    if (aspectRatioEl && aspectRatioEl.value)
-      requestBody.aspectRatio = aspectRatioEl.value;
 
     // Add seed if in fixed mode and has a value
     // Determine seed: use fixed seed when provided, otherwise generate a random seed

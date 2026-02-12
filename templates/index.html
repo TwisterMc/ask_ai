@@ -218,40 +218,36 @@
           <div class="grid grid-cols-2 gap-4 mb-4">
             <div>
               <label
-                for="size"
-                class="block text-gray-700 text-sm font-bold mb-2"
-                >Image Size:</label
-              >
-              <select
-                id="size"
-                onchange="saveFormSettings()"
-                class="w-full px-3 py-2 border rounded-lg disabled:opacity-50"
-                aria-disabled="false"
-              >
-                <option value="512x512">512x512 (Fast)</option>
-                <option value="512x1024">512x1024 (Vertical)</option>
-                <option value="768x768">768x768 (Balanced)</option>
-                <option value="1024x512">1024x512 (Horizontal)</option>
-                <option value="1024x1024" selected>1024x1024 (HD)</option>
-                <option value="1024x1536">1024x1536 (Portrait)</option>
-                <option value="1536x1024">1536x1024 (Landscape)</option>
-              </select>
-
-              <!-- Aspect ratio control (also used by upstream API) -->
-              <label
                 for="aspectRatio"
-                class="block text-gray-700 text-xs font-semibold mt-3 mb-1"
-                >Aspect Ratio</label
+                class="block text-gray-700 text-sm font-bold mb-2"
+                >Aspect Ratio:</label
               >
               <select
                 id="aspectRatio"
                 onchange="saveFormSettings()"
-                class="w-full px-2 py-1 border rounded-lg text-sm"
-                aria-label="Aspect ratio for output"
+                class="w-full px-3 py-2 border rounded-lg disabled:opacity-50"
+                aria-disabled="false"
               >
                 <option value="1:1">1:1</option>
                 <option value="16:9">16:9</option>
                 <option value="9:16">9:16</option>
+              </select>
+
+              <label
+                for="baseResolution"
+                class="block text-gray-700 text-xs font-semibold mt-3 mb-1"
+                >Base Resolution</label
+              >
+              <select
+                id="baseResolution"
+                onchange="saveFormSettings()"
+                class="w-full px-2 py-1 border rounded-lg text-sm"
+                aria-label="Base resolution for output"
+              >
+                <option value="512">512</option>
+                <option value="768">768</option>
+                <option value="1024" selected>1024</option>
+                <option value="1536">1536</option>
               </select>
             </div>
             <div>

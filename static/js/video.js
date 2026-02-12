@@ -129,17 +129,18 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         if (data.pricing) {
+          const formatSporeValue = (value) => {
+            const num = typeof value === "number" ? value : parseFloat(value);
+            if (!Number.isFinite(num)) return String(value);
+            return num.toFixed(8);
+          };
           const p = document.createElement("div");
           p.className = "mt-2 text-sm text-gray-700";
           try {
             const pricing = data.pricing;
             let friendly = null;
             if (pricing && typeof pricing === "object") {
-              if (pricing.estimate_text) {
-                friendly = pricing.estimate_text
-                  .replace(/^\s*Estimated:\s*/i, "")
-                  .replace(/pollen/gi, "spores");
-              } else if (
+              if (
                 typeof pricing.estimated_total !== "undefined" &&
                 pricing.estimated_total !== null
               ) {
@@ -147,11 +148,16 @@ document.addEventListener("DOMContentLoaded", () => {
                   (pricing.currency || "pollen").toLowerCase() === "pollen"
                     ? "spores"
                     : pricing.currency || "";
-                friendly = `${pricing.estimated_total} ${unit}`.trim();
+                friendly =
+                  `${formatSporeValue(pricing.estimated_total)} ${unit}`.trim();
+              } else if (pricing.estimate_text) {
+                friendly = pricing.estimate_text
+                  .replace(/^\s*Estimated:\s*/i, "")
+                  .replace(/pollen/gi, "spores");
               } else {
                 const parts = [];
                 const numericVals = Object.entries(pricing).filter(
-                  ([k, v]) => typeof v === "number"
+                  ([k, v]) => typeof v === "number",
                 );
                 numericVals.forEach(([k, v]) => parts.push(`${k}: ${v}`));
                 if (parts.length) {
