@@ -25,7 +25,7 @@ _MODELS_CACHE_TTL = 300  # seconds
 
 def chat_api(request):
     """Simple proxy for text/chat interactions. Accepts JSON { message, model, temperature, max_tokens }.
-    Sends a GET request to the configured TEXT_API endpoint with the encoded message and optional query params.
+    Sends a POST request to the configured chat completions endpoint with messages.
     Returns JSON: { success: True, reply: "..." } or { success: False, error: "..." }.
     """
     try:
@@ -39,12 +39,11 @@ def chat_api(request):
         if not message and not has_messages:
             return jsonify({"success": False, "error": "No message provided"})
 
-        model = data.get('model')
+        model = data.get('model') or 'openai'
         temperature = data.get('temperature')
         max_tokens = data.get('max_tokens')
 
-        # prefer POST/JSON to support structured conversations
-        url = API_CONFIG['TEXT_API']
+        url = API_CONFIG['CHAT_COMPLETIONS_API']
         headers = {'Content-Type': 'application/json'}
         # prefer an API key supplied by the browser (localStorage) forwarded in the Authorization header
         incoming_auth = None
@@ -55,33 +54,23 @@ def chat_api(request):
         if incoming_auth:
             headers['Authorization'] = incoming_auth
 
-        # The upstream text API expects a GET request with the encoded prompt
-        # appended to the base TEXT_API URL (same as enhance_prompt_api).
-        # If the client provided a `messages` array, concatenate message contents.
         messages = data.get('messages')
-        if isinstance(messages, list) and messages:
-            # join message contents in order, preferring user/assistant content
-            parts = []
-            for m in messages:
-                if isinstance(m, dict):
-                    c = m.get('content') or m.get('text') or ''
-                    if c:
-                        parts.append(str(c))
-            combined = '\n'.join(parts)
-        else:
-            combined = message
+        if not isinstance(messages, list) or not messages:
+            messages = [{'role': 'user', 'content': message}]
 
-        encoded = quote(combined)
-        request_url = f"{API_CONFIG['TEXT_API']}{encoded}"
-
-        # Add referrer if not localhost (API doesn't accept IP addresses as referrer)
-        host = request.host or API_CONFIG['REFERRER']
-        if host and not host.startswith('127.0.0.1') and not host.startswith('localhost'):
-            request_url += f"?referrer={host}"
+        payload = {
+            'messages': messages,
+        }
+        if model:
+            payload['model'] = model
+        if temperature is not None:
+            payload['temperature'] = temperature
+        if max_tokens is not None:
+            payload['max_tokens'] = max_tokens
 
         try:
-            logger.debug("Chat request_url: %s", request_url)
-            resp = requests.get(request_url, headers=headers, timeout=API_CONFIG.get('TIMEOUT', 30))
+            logger.debug("Chat request_url: %s", url)
+            resp = requests.post(url, headers=headers, json=payload, timeout=API_CONFIG.get('TIMEOUT', 30))
         except Timeout:
             return jsonify({"success": False, "error": "The chat service timed out. Please try again."})
         except ConnectionError as e:
@@ -100,8 +89,50 @@ def chat_api(request):
                 return jsonify({"success": False, "error": f"API Error 402: {msg}"}), 402
             return jsonify({"success": False, "error": f"Chat service returned status {resp.status_code}"}), resp.status_code
 
+        def _extract_text_from_content(content):
+            if isinstance(content, str):
+                return content
+            if isinstance(content, list):
+                blocks = []
+                for block in content:
+                    if isinstance(block, dict):
+                        if block.get('type') == 'text' and block.get('text'):
+                            blocks.append(block['text'])
+                        elif isinstance(block.get('text'), str):
+                            blocks.append(block['text'])
+                    elif isinstance(block, str):
+                        blocks.append(block)
+                return '\n'.join(blocks) if blocks else None
+            return None
+
+        def _extract_text_from_choice(choice):
+            if not isinstance(choice, dict):
+                return None
+            msg = choice.get('message')
+            if isinstance(msg, dict):
+                text = _extract_text_from_content(msg.get('content'))
+                if text:
+                    return text
+                if isinstance(msg.get('content_blocks'), list):
+                    text = _extract_text_from_content(msg.get('content_blocks'))
+                    if text:
+                        return text
+            delta = choice.get('delta')
+            if isinstance(delta, dict):
+                text = _extract_text_from_content(delta.get('content'))
+                if text:
+                    return text
+                if isinstance(delta.get('content_blocks'), list):
+                    text = _extract_text_from_content(delta.get('content_blocks'))
+                    if text:
+                        return text
+            if isinstance(choice.get('text'), str):
+                return choice.get('text')
+            return None
+
         # attempt to parse JSON reply; otherwise use text
         reply_text = None
+        finish_reason = None
         try:
             j = resp.json()
             # common shapes: { reply: "..." } or { choices: [...] }
@@ -111,10 +142,10 @@ def chat_api(request):
                 elif 'choices' in j and isinstance(j['choices'], list) and j['choices']:
                     # could be chat completion style
                     c = j['choices'][0]
-                    if isinstance(c, dict) and 'message' in c and isinstance(c['message'], dict):
-                        reply_text = c['message'].get('content') or c['message'].get('text')
-                    else:
-                        reply_text = str(c)
+                    if isinstance(c, dict):
+                        finish_reason = c.get('finish_reason')
+                    extracted = _extract_text_from_choice(c)
+                    reply_text = extracted if extracted is not None else str(c)
                 else:
                     # fallback to full JSON string
                     reply_text = j.get('text') or str(j)
@@ -123,12 +154,23 @@ def chat_api(request):
         except Exception:
             reply_text = resp.text or ''
 
+        if not reply_text and finish_reason == 'length':
+            reply_text = (
+                "Response was cut off due to length. "
+                "Increase Response length and try again."
+            )
+
         # Include pricing info for the chosen model (best-effort)
-        pricing = get_model_pricing(model, request)
+        pricing = get_text_model_pricing(model, request)
         if isinstance(pricing, dict) and pricing.get('__api_forbidden'):
             return jsonify({"success": False, "error": f"API Error 403: {pricing.get('message')}"}), 403
 
-        return jsonify({"success": True, "reply": reply_text, "pricing": pricing})
+        return jsonify({
+            "success": True,
+            "reply": reply_text,
+            "pricing": pricing,
+            "finish_reason": finish_reason,
+        })
     except Exception as e:
         return jsonify({"success": False, "error": f"Unexpected error: {str(e)}"})
 
@@ -266,6 +308,47 @@ def get_model_pricing(model_name, request_obj=None):
     return None
 
 
+def get_text_model_pricing(model_name, request_obj=None):
+    """Fetch text model pricing from /text/models (best-effort). Returns pricing dict or None."""
+    try:
+        if not model_name:
+            return None
+
+        models_url = API_CONFIG.get('TEXT_MODELS_API', f"{API_CONFIG['TEXT_API']}models")
+        headers = {}
+        incoming_auth = None
+        try:
+            if request_obj is not None:
+                incoming_auth = request_obj.headers.get('Authorization')
+        except Exception:
+            incoming_auth = None
+        if incoming_auth:
+            headers['Authorization'] = incoming_auth
+
+        cache_key = f"text_models::{model_name}"
+        now = time.time()
+        cached = _PRICING_CACHE.get(cache_key)
+        if cached and (now - cached[0]) < _PRICING_CACHE_TTL:
+            return cached[1]
+
+        r = requests.get(models_url, headers=headers, timeout=10)
+        if r.status_code == 200:
+            items = r.json()
+            for it in items:
+                name = it.get('name') or it.get('id') or ''
+                aliases = it.get('aliases', []) or []
+                if model_name == name or model_name in aliases:
+                    pricing = it.get('pricing') or it.get('price')
+                    _PRICING_CACHE[cache_key] = (now, pricing)
+                    return pricing
+        if r.status_code == 403:
+            msg = _parse_api_error(r)
+            return {'__api_forbidden': True, 'message': msg}
+    except Exception:
+        pass
+    return None
+
+
 def get_models_api(request_obj=None):
     """Fetch the models list from the upstream API and return a JSON response.
     If `request_obj` is provided, prefer its Authorization header so BYOP works.
@@ -302,6 +385,110 @@ def get_models_api(request_obj=None):
     except Exception as e:
         logger.exception("Error fetching models list")
         return jsonify({"success": False, "error": f"Error fetching models: {str(e)}"})
+
+
+def get_chat_models_api(request_obj=None):
+    """Fetch the chat models list from the upstream /v1/models endpoint."""
+    try:
+        now = time.time()
+        cached = _MODELS_CACHE.get('chat_models')
+        if cached and (now - cached[0]) < _MODELS_CACHE_TTL:
+            cached_models = cached[1]
+            if isinstance(cached_models, list) and cached_models:
+                first = cached_models[0]
+                if isinstance(first, dict) and 'id' in first:
+                    return jsonify({"success": True, "models": cached_models})
+
+        models_url = API_CONFIG.get('CHAT_MODELS_API', 'https://gen.pollinations.ai/v1/models')
+        text_models_url = API_CONFIG.get('TEXT_MODELS_API', f"{API_CONFIG['TEXT_API']}models")
+        headers = {"Content-Type": "application/json"}
+        incoming_auth = None
+        try:
+            if request_obj is not None:
+                incoming_auth = request_obj.headers.get('Authorization')
+        except Exception:
+            incoming_auth = None
+        if incoming_auth:
+            headers['Authorization'] = incoming_auth
+
+        def _cost_indicator_from_pricing(pricing):
+            if not isinstance(pricing, dict):
+                return None
+            cost_per_1k = None
+            try:
+                if pricing.get('pollen_per_1k_tokens') is not None:
+                    cost_per_1k = float(pricing.get('pollen_per_1k_tokens'))
+                elif pricing.get('pollen_per_token') is not None:
+                    cost_per_1k = float(pricing.get('pollen_per_token')) * 1000.0
+            except Exception:
+                cost_per_1k = None
+            if cost_per_1k is None:
+                return None
+            if cost_per_1k <= 0.0005:
+                return '$'
+            if cost_per_1k <= 0.002:
+                return '$$'
+            if cost_per_1k <= 0.01:
+                return '$$$'
+            return '$$$$'
+
+        pricing_map = {}
+        text_model_ids = []
+        try:
+            pricing_resp = requests.get(text_models_url, headers=headers, timeout=10)
+            if pricing_resp.status_code == 200:
+                pricing_items = pricing_resp.json()
+                if isinstance(pricing_items, list):
+                    for item in pricing_items:
+                        if not isinstance(item, dict):
+                            continue
+                        name = item.get('name') or item.get('id') or ''
+                        pricing = item.get('pricing') or item.get('price')
+                        if name:
+                            pricing_map[name] = pricing
+                            text_model_ids.append(name)
+                        aliases = item.get('aliases', []) or []
+                        for alias in aliases:
+                            if alias and alias not in pricing_map:
+                                pricing_map[alias] = pricing
+        except Exception:
+            pricing_map = {}
+            text_model_ids = []
+
+        r = requests.get(models_url, headers=headers, timeout=10)
+        if r.status_code == 200:
+            payload = r.json()
+            models = []
+            if isinstance(payload, dict) and isinstance(payload.get('data'), list):
+                for item in payload['data']:
+                    if isinstance(item, dict) and item.get('id'):
+                        models.append(item['id'])
+            elif isinstance(payload, list):
+                # fallback: some APIs return a raw list
+                models = payload
+            models_out = []
+            if pricing_map:
+                for model_id in models:
+                    pricing = pricing_map.get(model_id)
+                    cost_indicator = _cost_indicator_from_pricing(pricing)
+                    models_out.append({"id": model_id, "cost": cost_indicator})
+            if not models_out and text_model_ids:
+                for name in sorted(set(text_model_ids)):
+                    cost_indicator = _cost_indicator_from_pricing(pricing_map.get(name))
+                    models_out.append({"id": name, "cost": cost_indicator})
+            if not models_out:
+                for model_id in models:
+                    models_out.append({"id": model_id, "cost": None})
+            _MODELS_CACHE['chat_models'] = (now, models_out)
+            return jsonify({"success": True, "models": models_out})
+        elif r.status_code == 403:
+            msg = _parse_api_error(r)
+            return jsonify({"success": False, "error": msg}), 403
+        else:
+            return jsonify({"success": False, "error": f"Models fetch failed: status {r.status_code}"}), r.status_code
+    except Exception as e:
+        logger.exception("Error fetching chat models list")
+        return jsonify({"success": False, "error": f"Error fetching chat models: {str(e)}"})
 
 
 def _parse_api_error(resp):
@@ -649,7 +836,7 @@ def estimate_price_api(request):
         if not request.is_json:
             return jsonify({"success": False, "error": "Request must be JSON"})
         data = request.get_json(silent=True) or {}
-        model = data.get('model', API_CONFIG.get('DEFAULT_MODEL'))
+        model = data.get('model') or 'openai'
         duration = data.get('duration', None)
         size = data.get('size', None)
         quality = data.get('quality', None)
@@ -661,7 +848,7 @@ def estimate_price_api(request):
         except Exception:
             dur_val = None
 
-        pricing = get_model_pricing(model, request)
+        pricing = get_text_model_pricing(model, request)
 
         # If the pricing call returned a forbidden marker, surface that error
         if isinstance(pricing, dict) and pricing.get('__api_forbidden'):
@@ -699,7 +886,7 @@ def estimate_chat_price_api(request):
         if not request.is_json:
             return jsonify({"success": False, "error": "Request must be JSON"})
         data = request.get_json(silent=True) or {}
-        model = data.get('model', API_CONFIG.get('DEFAULT_MODEL'))
+        model = data.get('model') or 'openai'
         max_tokens = data.get('max_tokens', None)
 
         try:
@@ -707,7 +894,7 @@ def estimate_chat_price_api(request):
         except Exception:
             tokens = None
 
-        pricing = get_model_pricing(model, request)
+        pricing = get_text_model_pricing(model, request)
         if isinstance(pricing, dict) and pricing.get('__api_forbidden'):
             return jsonify({"success": False, "error": f"API Error 403: {pricing.get('message')}"}), 403
 

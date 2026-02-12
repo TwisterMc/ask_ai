@@ -7,7 +7,7 @@ from generators import (
     chat_api,
 )
 from generators import estimate_chat_price_api
-from generators import validate_api_key, check_balance_api, get_models_api
+from generators import validate_api_key, check_balance_api, get_models_api, get_chat_models_api
 import os
 
 # Load environment variables from .env file (for local development)
@@ -101,6 +101,11 @@ def api_check_balance():
 @app.route('/api/models', methods=['GET'])
 def api_models():
     return get_models_api(request)
+
+
+@app.route('/api/chat_models', methods=['GET'])
+def api_chat_models():
+    return get_chat_models_api(request)
 
 
 

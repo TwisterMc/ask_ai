@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -14,29 +14,41 @@
     >
 
     <div class="container mx-auto px-4 py-8">
-      <h1 class="text-4xl font-bold text-center mb-8">AI Chat</h1>
+      <h1 class="text-4xl font-bold text-center mb-2">AI Chat</h1>
+      <p class="text-center text-sm text-gray-600 mb-6">
+        Some models may not work.
+      </p>
       <main id="main-content" class="max-w-3xl mx-auto relative">
         <section class="bg-white rounded-lg shadow-lg p-4 mb-4">
           <div class="flex gap-3 items-center mb-3">
             <label class="text-sm text-gray-600">Model</label>
             <select id="chatModel" class="border rounded px-2 py-1">
-              <option value="gpt-3">gpt-3</option>
-              <option value="gpt-4">gpt-4</option>
+              <option value="" disabled selected>Loading models...</option>
             </select>
 
-            <label class="text-sm text-gray-600">Temperature</label>
+            <label
+              class="text-sm text-gray-600"
+              title="Higher = more varied responses"
+            >
+              Creative
+            </label>
             <input
               id="chatTemp"
               type="range"
               min="0"
-              max="1"
+              max="2"
               step="0.1"
               value="0.7"
               class="w-36"
             />
             <span id="chatTempValue" class="text-sm text-gray-700">0.7</span>
 
-            <label class="text-sm text-gray-600">Max tokens</label>
+            <label
+              class="text-sm text-gray-600"
+              title="Maximum response length. Higher can cost more."
+            >
+              Response length
+            </label>
             <input
               id="chatMax"
               type="number"
