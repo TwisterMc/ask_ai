@@ -24,6 +24,7 @@ function saveFormSettings() {
     quality: document.getElementById("quality").value,
     guidance: document.getElementById("guidance").value,
     seedMode: document.getElementById("seed-mode").value,
+    aspectRatio: (document.getElementById("aspectRatio") || {}).value || "1:1",
   };
   console.debug && console.debug("Saving settings:", settings);
   localStorage.setItem("formSettings", JSON.stringify(settings));
@@ -74,6 +75,9 @@ function loadFormSettings() {
   document.getElementById("quality").value = settings.quality || "balanced";
   document.getElementById("guidance").value = settings.guidance || "7.0";
   document.getElementById("seed-mode").value = settings.seedMode || "random";
+  // restore aspect ratio when available (default 1:1)
+  const arEl = document.getElementById("aspectRatio");
+  if (arEl) arEl.value = settings.aspectRatio || "1:1";
 
   // Update guidance value display
   document.getElementById("guidance-value").textContent =
@@ -252,7 +256,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    ["model", "size", "quality", "guidance"].forEach((id) => {
+    ["model", "size", "quality", "guidance", "aspectRatio"].forEach((id) => {
       const el = document.getElementById(id);
       if (el) el.addEventListener("change", fetchImageEstimate);
     });
@@ -697,14 +701,19 @@ async function generateImage() {
       guidance,
     };
 
+    // Include optional aspectRatio if the control exists on the page (video page provides this).
+    const aspectRatioEl = document.getElementById("aspectRatio");
+    if (aspectRatioEl && aspectRatioEl.value)
+      requestBody.aspectRatio = aspectRatioEl.value;
+
     // Add seed if in fixed mode and has a value
     // Determine seed: use fixed seed when provided, otherwise generate a random seed
     let seedToSend = null;
     if (seedMode === "fixed" && seedValue) {
       seedToSend = parseInt(seedValue);
     } else {
-      // generate a 32-bit positive integer seed for reproducibility
-      seedToSend = Math.floor(Math.random() * 2147483647);
+      // Use -1 to signal 'random' per Pollinations API (server will forward -1)
+      seedToSend = -1;
     }
     if (seedToSend !== null && !Number.isNaN(seedToSend)) {
       requestBody.seed = seedToSend;

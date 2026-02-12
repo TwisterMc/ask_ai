@@ -405,6 +405,8 @@ def generate_image_api(request):
         style = data.get("style", "photographic")
         model = data.get("model", "flux")
         size = data.get("size", "1024x1024")
+        # new: read quality from client so we can forward it (gptimage only)
+        quality = data.get("quality", None)
         negative_prompt = data.get("negative_prompt", "")
         seed = data.get("seed", None)
         # Normalize seed: accept integers only, ignore empty strings or invalid values
@@ -430,8 +432,13 @@ def generate_image_api(request):
             'seedream-pro': {'min_pixels': 921600},
         }
         
-        width, height = map(int, size.split('x'))
-        
+        try:
+            width, height = map(int, size.split('x'))
+        except Exception:
+            # fallback to a safe default if size parsing fails
+            logger.debug("Invalid size format '%s', defaulting to 1024x1024", size)
+            width, height = 1024, 1024
+
         # Apply model-specific constraints
         if model in MODEL_MIN_SIZES:
             constraints = MODEL_MIN_SIZES[model]
@@ -456,25 +463,40 @@ def generate_image_api(request):
         logger.debug("[GENERATE] Complete prompt: %s", complete_prompt)
         logger.debug("[GENERATE] URL (without auth): %s...", image_url[:150])
         
-        # Add referrer if not localhost (API doesn't accept IP addresses as referrer)
-        host = request.host or API_CONFIG['REFERRER']
-        if host and not host.startswith('127.0.0.1') and not host.startswith('localhost'):
-            image_url += f"&referrer={host}"
-        
-        # Add nologo parameter if authenticated
-        if API_CONFIG['API_TOKEN']:
-            image_url += "&nologo=true"
-        
         # Add seed if provided
         if seed is not None:
             image_url += f"&seed={seed}"
 
+        # Add negative prompt if provided (documented API param)
+        if isinstance(negative_prompt, str) and negative_prompt.strip():
+            image_url += f"&negative_prompt={quote(negative_prompt)}"
+
+        # Include quality and guidance. Map UI quality labels to upstream enum when appropriate.
+        if quality:
+            q = str(quality).lower()
+            # If caller already provided API enum (low/medium/high/hd), pass through
+            if q in {'low', 'medium', 'high', 'hd'}:
+                image_url += f"&quality={quote(q)}"
+            else:
+                # Map our UI labels to API enum values for gptimage compatibility
+                ui_to_api = {'fast': 'low', 'balanced': 'medium', 'detailed': 'high', 'maximum': 'hd'}
+                mapped = ui_to_api.get(q)
+                if mapped:
+                    image_url += f"&quality={quote(mapped)}"
+                else:
+                    # If a numeric step count was provided, pass it through (some models accept numeric quality)
+                    try:
+                        _ = int(quality)
+                        image_url += f"&quality={quote(str(quality))}"
+                    except Exception:
+                        # unknown quality string — do not forward
+                        logger.debug("Unknown quality value skipped: %s", quality)
         # Video-specific params (optional)
         duration = data.get("duration", None)
         aspectRatio = data.get("aspectRatio", "")
         audio = data.get("audio", False)
 
-        # normalize duration value
+        # normalize duration and fps values
         try:
             dur_val = int(duration) if duration is not None else None
         except Exception:
@@ -484,7 +506,7 @@ def generate_image_api(request):
         VIDEO_MODELS = {"veo", "seedance", "seedance-pro"}
         is_video_request = False
         try:
-            if duration is not None and int(duration) > 0:
+            if dur_val is not None and dur_val > 0:
                 is_video_request = True
         except Exception:
             is_video_request = is_video_request
@@ -492,12 +514,14 @@ def generate_image_api(request):
         if model and model.lower() in VIDEO_MODELS:
             is_video_request = True
 
+        # Include only supported query params. Forward aspectRatio for both image/video when provided.
+        if aspectRatio:
+            image_url += f"&aspectRatio={quote(str(aspectRatio))}"
+
         if is_video_request:
             # duration in seconds (already normalized to dur_val)
             if dur_val is not None:
                 image_url += f"&duration={dur_val}"
-            if aspectRatio:
-                image_url += f"&aspectRatio={quote(str(aspectRatio))}"
             if audio:
                 image_url += "&audio=true"
         
