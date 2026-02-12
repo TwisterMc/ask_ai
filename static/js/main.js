@@ -131,8 +131,11 @@ async function fetchBalance() {
     } else if (res.status === 401) {
       balanceDisplayEl.textContent = "Balance: Invalid API key";
       balanceDisplayEl.className = "text-sm text-red-600";
+    } else if (res.status === 403) {
+      balanceDisplayEl.textContent = `Balance: ${data.error || "Permission denied"}`;
+      balanceDisplayEl.className = "text-sm text-red-600";
     } else {
-      balanceDisplayEl.textContent = "Balance: unavailable";
+      balanceDisplayEl.textContent = `Balance: ${data.error || "unavailable"}`;
       balanceDisplayEl.className = "text-sm text-gray-500";
     }
   } catch (err) {
@@ -491,6 +494,7 @@ async function generateImage() {
     });
 
     const data = await response.json();
+    console.log("Generation response:", { status: response.status, data });
 
     if (data.success) {
       img.src = data.url;

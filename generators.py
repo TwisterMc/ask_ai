@@ -16,15 +16,6 @@ _PRICING_CACHE = {}
 _PRICING_CACHE_TTL = 60  # seconds
 
 
-def _should_use_server_api_token():
-    """Check if the server's API token should be used as fallback.
-    Only returns True if the token is explicitly set to 'wrestling' (demo/test key).
-    Otherwise, users must provide their own API keys.
-    """
-    token = API_CONFIG.get('API_TOKEN', '')
-    return token == 'wrestling'
-
-
 def chat_api(request):
     """Simple proxy for text/chat interactions. Accepts JSON { message, model, temperature, max_tokens }.
     Sends a GET request to the configured TEXT_API endpoint with the encoded message and optional query params.
@@ -56,8 +47,6 @@ def chat_api(request):
             incoming_auth = None
         if incoming_auth:
             headers['Authorization'] = incoming_auth
-        elif _should_use_server_api_token():
-            headers['Authorization'] = f"Bearer {API_CONFIG['API_TOKEN']}"
 
         # The upstream text API expects a GET request with the encoded prompt
         # appended to the base TEXT_API URL (same as enhance_prompt_api).
@@ -157,8 +146,6 @@ def validate_api_key(request):
             incoming_auth = None
         if incoming_auth:
             headers['Authorization'] = incoming_auth
-        elif _should_use_server_api_token():
-            headers['Authorization'] = f"Bearer {API_CONFIG['API_TOKEN']}"
 
         r = requests.get(models_url, headers=headers, timeout=10)
         if r.status_code == 200:
@@ -183,14 +170,22 @@ def check_balance_api(request):
             incoming_auth = request.headers.get('Authorization')
         except Exception:
             incoming_auth = None
+        
+        # Debug logging
+        print(f"[CHECK_BALANCE] Incoming auth header present: {bool(incoming_auth)}")
+        if incoming_auth:
+            print(f"[CHECK_BALANCE] Auth header starts with: {incoming_auth[:20] if len(incoming_auth) > 20 else incoming_auth}")
+        
         if incoming_auth:
             headers['Authorization'] = incoming_auth
-        elif _should_use_server_api_token():
-            headers['Authorization'] = f"Bearer {API_CONFIG['API_TOKEN']}"
         else:
             return jsonify({"success": False, "error": "No API key provided"}), 401
 
         r = requests.get(balance_url, headers=headers, timeout=10)
+        print(f"[CHECK_BALANCE] Pollinations API response: {r.status_code}")
+        if r.status_code != 200:
+            print(f"[CHECK_BALANCE] Response text: {r.text[:200]}")
+        
         if r.status_code == 200:
             data = r.json()
             return jsonify({"success": True, "balance": data})
@@ -203,6 +198,7 @@ def check_balance_api(request):
         else:
             return jsonify({"success": False, "error": f"Balance check failed: status {r.status_code}"}), r.status_code
     except Exception as e:
+        print(f"[CHECK_BALANCE] Exception: {str(e)}")
         return jsonify({"success": False, "error": f"Balance check error: {str(e)}"})
 
 
@@ -223,8 +219,6 @@ def get_model_pricing(model_name, request_obj=None):
             incoming_auth = None
         if incoming_auth:
             h['Authorization'] = incoming_auth
-        elif _should_use_server_api_token():
-            h['Authorization'] = f"Bearer {API_CONFIG['API_TOKEN']}"
         # use a cached value when available
         cache_key = f"models::{model_name}"
         now = time.time()
@@ -314,8 +308,6 @@ def enhance_prompt_api(request):
             incoming_auth = None
         if incoming_auth:
             headers['Authorization'] = incoming_auth
-        elif _should_use_server_api_token():
-            headers['Authorization'] = f"Bearer {API_CONFIG['API_TOKEN']}"
         
         try:
             response = requests.get(enhancement_url, headers=headers, timeout=API_CONFIG['TIMEOUT'])
@@ -366,6 +358,8 @@ def generate_image_api(request):
         negative_prompt = data.get("negative_prompt", "")
         seed = data.get("seed", None)
         
+        print(f"[GENERATE] Received request - prompt: {prompt[:50]}, style: {style}, model: {model}")
+        
         # Model-specific size requirements
         MODEL_MIN_SIZES = {
             'gptimage': {'min_width': 1024, 'min_height': 1024, 'allowed': ['1024x1024', '1024x1536', '1536x1024']},
@@ -395,6 +389,9 @@ def generate_image_api(request):
                     f"width={width}&"
                     f"height={height}&"
                     f"model={model}")
+        
+        print(f"[GENERATE] Complete prompt: {complete_prompt}")
+        print(f"[GENERATE] URL (without auth): {image_url[:150]}...")
         
         # Add referrer if not localhost (API doesn't accept IP addresses as referrer)
         host = request.host or API_CONFIG['REFERRER']
@@ -451,13 +448,18 @@ def generate_image_api(request):
             incoming_auth = request.headers.get('Authorization')
         except Exception:
             incoming_auth = None
+        
+        # Debug logging
+        print(f"[GENERATE] Incoming auth header present: {bool(incoming_auth)}")
+        if incoming_auth:
+            print(f"[GENERATE] Auth header starts with: {incoming_auth[:20] if len(incoming_auth) > 20 else incoming_auth}")
+        
         if incoming_auth:
             headers['Authorization'] = incoming_auth
-        elif _should_use_server_api_token():
-            headers['Authorization'] = f"Bearer {API_CONFIG['API_TOKEN']}"
         
         try:
             img_response = requests.get(image_url, headers=headers, timeout=API_CONFIG['TIMEOUT'])
+            print(f"[GENERATE] Pollinations API response: {img_response.status_code}")
         except Timeout:
             print(f"Timeout generating image")
             return jsonify({"success": False, "error": "Image generation took too long (timeout). The API may be experiencing high load. Please try again in a moment."})

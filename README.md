@@ -55,15 +55,21 @@ cd ask_ai
 python3 -m pip install -r requirements.txt
 ```
 
-3. (Optional) For demo/testing only - Set up a server API token:
+3. (Optional) Set up environment variables:
 
 Create a `.env` file in the project root:
 
 ```bash
-echo 'POLLINATIONS_API_TOKEN=wrestling' > .env
+touch .env
 ```
 
-**Note:** Setting `POLLINATIONS_API_TOKEN=wrestling` enables a demo key for testing. For production use, users should provide their own API keys through the "AI Settings" interface (no server-side key needed).
+You can add optional configuration like:
+
+```
+POLLINATIONS_REFERRER=yourdomain.com
+```
+
+**Note:** This app uses a strict BYOP (Bring Your Own Pollen) model. All users must provide their own API keys from [enter.pollinations.ai](https://enter.pollinations.ai) - there is no server-side fallback key for security reasons.
 
 ## Running the Application
 
@@ -110,29 +116,28 @@ deactivate
 
 1. Clone your repository on the hosting platform
 2. Create a virtual environment and install dependencies
-3. Set environment variables for optional features:
-   - `POLLINATIONS_API_TOKEN`: Set to `wrestling` to enable a demo/test key for server-side requests (not recommended for production)
+3. (Optional) Set environment variables:
    - `POLLINATIONS_REFERRER`: (optional) Fallback referrer domain if auto-detection fails
 4. Configure your web app to use Flask
 5. Update the WSGI configuration to point to `app.py`
 
 **How it works:**
 
-- Users must provide their own API keys from [enter.pollinations.ai](https://enter.pollinations.ai)
+- **Required:** Users must provide their own API keys from [enter.pollinations.ai](https://enter.pollinations.ai)
 - API keys are stored in the browser's localStorage (never sent to the app server)
 - Keys are sent directly from the browser to Pollinations.AI for each request
 - The app automatically detects your domain from the request (e.g., `twistermc.pythonanywhere.com` or `localhost:5000`)
 - The domain is sent to the Pollinations API as the referrer
 - If auto-detection fails for some reason, it falls back to the `POLLINATIONS_REFERRER` environment variable (defaults to `localhost:5000`)
 
-**API Key Management:**
+**API Key Management (BYOP - Bring Your Own Pollen):**
 
-- Users are required to provide their own API keys for image generation and AI features
+- Users are **required** to provide their own API keys for all AI features
 - Get a free account at [enter.pollinations.ai](https://enter.pollinations.ai)
-- Copy your API Bearer token
+- Copy your API Bearer token (starts with `sk_`)
 - Click "AI Settings" in the footer to add your key
 - Keys are stored locally in your browser only (never on the server)
-- The server's `POLLINATIONS_API_TOKEN` is only used if explicitly set to `wrestling` (for demo/testing purposes)
+- No server-side API key fallback - this ensures security and fair usage
 
 ## Usage
 

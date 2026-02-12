@@ -7,7 +7,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const validateBtn = document.getElementById("validateKey");
   const clearBtn = document.getElementById("clearKeyBtn");
   const checkBalanceBtn = document.getElementById("checkBalanceBtn");
-  const balanceDisplay = document.getElementById("balanceDisplay");
+  const balanceDisplay = document.getElementById("settingsBalanceDisplay");
   const STORAGE_KEY = "ask_ai_user_api_key";
 
   const statusEl = document.getElementById("settingsStatus");
@@ -57,8 +57,10 @@ document.addEventListener("DOMContentLoaded", () => {
         statusEl.classList.add("sr-only");
       }
       if (balanceDisplay) {
-        balanceDisplay.textContent = "";
-        balanceDisplay.className = "mt-2 text-sm";
+        balanceDisplay.innerHTML =
+          '<span class="text-gray-500">Balance will appear here after checking</span>';
+        balanceDisplay.className =
+          "mt-3 p-3 bg-gray-50 rounded border border-gray-200 min-h-[2rem] text-sm font-medium";
       }
     } catch (e) {
       console.debug("Could not clear settings messages", e);
@@ -256,16 +258,20 @@ document.addEventListener("DOMContentLoaded", () => {
       const key = input.value.trim();
       if (!key) {
         if (balanceDisplay) {
-          balanceDisplay.textContent = "Please enter an API key first";
-          balanceDisplay.className = "mt-2 text-sm text-red-600";
+          balanceDisplay.innerHTML =
+            '<span class="text-red-600">⚠️ Please enter an API key first</span>';
+          balanceDisplay.className =
+            "mt-3 p-3 bg-red-50 rounded border border-red-200 min-h-[2rem] text-sm font-medium";
         }
         return;
       }
 
       // Show loading state
       if (balanceDisplay) {
-        balanceDisplay.textContent = "Checking balance...";
-        balanceDisplay.className = "mt-2 text-sm text-gray-600";
+        balanceDisplay.innerHTML =
+          '<span class="text-blue-600">🔄 Checking balance...</span>';
+        balanceDisplay.className =
+          "mt-3 p-3 bg-blue-50 rounded border border-blue-200 min-h-[2rem] text-sm font-medium";
       }
       checkBalanceBtn.disabled = true;
 
@@ -287,47 +293,56 @@ document.addEventListener("DOMContentLoaded", () => {
           if (typeof balance === "object" && balance !== null) {
             // Format the balance data nicely
             if (balance.pollen !== undefined) {
-              displayText = `Balance: ${balance.pollen.toFixed(4)} pollen`;
+              displayText = `<div class="text-green-700"><span class="text-2xl font-bold">${balance.pollen.toFixed(2)}</span> pollen</div>`;
             }
             if (balance.tier) {
-              displayText += ` (${balance.tier} tier)`;
+              displayText += `<div class="text-xs text-gray-600 mt-1">Tier: ${balance.tier}</div>`;
             }
             if (balance.tier_pollen !== undefined) {
-              displayText += ` | Tier balance: ${balance.tier_pollen.toFixed(2)}`;
+              displayText += `<div class="text-xs text-gray-600">Tier balance: ${balance.tier_pollen.toFixed(2)}</div>`;
             }
           } else {
-            displayText = `Balance: ${JSON.stringify(balance)}`;
+            displayText = `<span class="text-green-700">${JSON.stringify(balance)}</span>`;
           }
 
           if (balanceDisplay) {
-            balanceDisplay.textContent = displayText;
+            balanceDisplay.innerHTML = displayText;
             balanceDisplay.className =
-              "mt-2 text-sm text-green-700 font-semibold";
+              "mt-3 p-3 bg-green-50 rounded border border-green-200 min-h-[2rem] text-sm";
           }
         } else if (res.status === 401) {
           if (balanceDisplay) {
-            balanceDisplay.textContent = "Unauthorized - Invalid API key";
-            balanceDisplay.className = "mt-2 text-sm text-red-600";
+            balanceDisplay.innerHTML =
+              '<span class="text-red-600">❌ Unauthorized - Invalid API key</span>';
+            balanceDisplay.className =
+              "mt-3 p-3 bg-red-50 rounded border border-red-200 min-h-[2rem] text-sm font-medium";
           }
         } else if (res.status === 403) {
           if (balanceDisplay) {
-            balanceDisplay.textContent =
-              "Access forbidden: " + (data.error || "Permission denied");
-            balanceDisplay.className = "mt-2 text-sm text-red-600";
+            balanceDisplay.innerHTML =
+              '<span class="text-red-600">❌ Access forbidden: ' +
+              (data.error || "Permission denied") +
+              "</span>";
+            balanceDisplay.className =
+              "mt-3 p-3 bg-red-50 rounded border border-red-200 min-h-[2rem] text-sm font-medium";
           }
         } else {
           if (balanceDisplay) {
-            balanceDisplay.textContent =
-              "Error: " + (data.error || `Status ${res.status}`);
-            balanceDisplay.className = "mt-2 text-sm text-red-600";
+            balanceDisplay.innerHTML =
+              '<span class="text-red-600">❌ Error: ' +
+              (data.error || `Status ${res.status}`) +
+              "</span>";
+            balanceDisplay.className =
+              "mt-3 p-3 bg-red-50 rounded border border-red-200 min-h-[2rem] text-sm font-medium";
           }
         }
       } catch (err) {
         console.error("Balance check error", err);
         if (balanceDisplay) {
-          balanceDisplay.textContent =
-            "Network error - Could not check balance";
-          balanceDisplay.className = "mt-2 text-sm text-red-600";
+          balanceDisplay.innerHTML =
+            '<span class="text-red-600">❌ Network error - Could not check balance</span>';
+          balanceDisplay.className =
+            "mt-3 p-3 bg-red-50 rounded border border-red-200 min-h-[2rem] text-sm font-medium";
         }
       } finally {
         checkBalanceBtn.disabled = !input.value.trim();
