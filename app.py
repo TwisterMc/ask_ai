@@ -72,10 +72,6 @@ def api_generate_password():
 def image_generator():
     return render_template("index.html")
 
-@app.route("/video")
-def video_generator():
-    return render_template("video.html")
-
 
 @app.route("/chat")
 def chat_page():
