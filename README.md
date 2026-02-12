@@ -1,27 +1,17 @@
-# Ask AI Image Generator
+# Ask AI
 
-A web application that generates images using the Pollinations.AI API, featuring an advanced prompt enhancement system and customizable generation parameters.
+A web application that generates images and supports AI chat using the Pollinations.AI API, featuring an advanced prompt enhancement system and customizable generation parameters.
 
 ## Features
 
 - **AI Image Generation**: Generate images from text descriptions using various AI models
+- **AI Chat**: Chat with multiple text models via the Pollinations.AI API
 - **Prompt Enhancement**: Automatically enhance your prompts using AI
 - **Password Generator**: Create secure, customizable passwords using either random characters or memorable random words
 - **API Key Management**: Store your Pollinations.AI API key securely in your browser's local storage
 - **Balance Checking**: Check your pollen balance directly from the settings panel
 - **Persistent Settings**: Automatically saves and restores your preferred settings
-- **Multiple AI Models** (sorted by cost):
-  - **$** GPT Image 1 Mini - OpenAI's image model (cheapest, default)
-  - **$$** FLUX Schnell - Fast high-quality image generation
-  - **$$** Z-Image Turbo - Fast 6B Flux with 2x upscaling
-  - **$$$** FLUX.2 Klein 4B - Fast image generation & editing
-  - **$$$** FLUX.2 Klein 9B - Higher quality image generation & editing
-  - **$$$ PAID** NanoBanana - Gemini 2.5 Flash (requires paid balance)
-  - **$$$ PAID** NanoBanana Pro - Gemini 3 Pro (4K, Thinking, requires paid balance)
-  - **$$$$ PAID** GPT Image 1.5 - OpenAI's advanced image model (requires paid balance)
-  - **$$$$ PAID** Seedream 4.0 - ByteDance ARK (requires paid balance)
-  - **$$$$ PAID** Kontext - Context-aware, supports image-to-image (requires paid balance)
-  - **$$$$ PAID** Seedream Pro 4.5 - ByteDance ARK (4K, Multi-Image, requires paid balance)
+- **Multiple AI Models**: Models are loaded dynamically from the Pollinations.AI API and may vary by account and balance.
 
 - **Customization Options**:
   - Multiple style presets (photographic, digital art, cinematic, steampunk, cyberpunk, neon, pixel art, and more)
@@ -32,6 +22,7 @@ A web application that generates images using the Pollinations.AI API, featuring
   - Prompt history with easy reuse
   - Settings persistence across sessions
   - Password length selection (16-100 characters)
+  - Chat response length estimate and creativity control
 
 ## Requirements
 
@@ -167,6 +158,14 @@ Your API key is stored only in your browser's localStorage and is never sent to 
 5. Click "Generate Image" to create your image
 6. Previous prompts are saved in the history for easy reuse
 
+### AI Chat
+
+1. Go to `/chat` or click the "AI Chat" link in the app
+2. Select a model (availability varies by account and balance)
+3. Adjust Creative (higher = more varied output)
+4. Adjust Response length for the cost estimate
+5. Type your message and click Send
+
 ### Generate Passwords
 
 1. Go to `/password` or click the "Password Generator" link in the app
@@ -179,10 +178,17 @@ Your API key is stored only in your browser's localStorage and is never sent to 
 
 - `POST /enhance_prompt`: Enhance a text prompt using AI (powered by Pollinations.AI)
 - `POST /generate`: Generate an image from a prompt (powered by Pollinations.AI)
+- `POST /api/chat`: Chat with text models (powered by Pollinations.AI)
+- `POST /api/estimate_chat_price`: Estimate chat cost (best-effort)
 - `POST /api/generate_password`: Generate a secure password (JSON: `{ "length": 20 }`)
 - `POST /api/validate_key`: Validate a Pollinations.AI API key (requires Authorization header)
 - `POST /api/check_balance`: Check pollen balance for an API key (requires Authorization header)
+- `GET /api/models`: Fetch image model metadata
+- `GET /api/chat_models`: Fetch available chat models
 - `GET /`: Main application interface
+- `GET /about`: About page
+- `GET /image`: Image generator interface
+- `GET /chat`: Chat interface
 - `GET /password`: Password generator interface
 - `GET /image`: Image generator interface
 
