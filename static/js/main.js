@@ -6,6 +6,9 @@ let currentImagePrompt = "";
 // Track current media for starring
 let lastGeneratedMedia = null;
 
+// Available models data
+let availableModels = [];
+
 // Form settings management
 
 /**
@@ -129,6 +132,30 @@ function pickClosestAspectRatio(width, height) {
   return bestKey;
 }
 
+function getPricingValue(pricing) {
+  if (!pricing) return null;
+  const keys = [
+    "completionVideoTokens",
+    "completionVideoSeconds",
+    "completionImageTokens",
+    "promptImageTokens",
+    "pollen_per_image",
+    "amount",
+    "pollen_per_1k_tokens",
+    "pollen_per_token",
+    "price",
+  ];
+  for (const k of keys) {
+    if (Object.prototype.hasOwnProperty.call(pricing, k)) {
+      const v = pricing[k];
+      const vnum =
+        typeof v === "number" ? v : typeof v === "string" ? parseFloat(v) : NaN;
+      if (!Number.isNaN(vnum) && vnum > 0) return vnum;
+    }
+  }
+  return null;
+}
+
 function parseLegacySize(size) {
   try {
     const [w, h] = String(size)
@@ -242,6 +269,35 @@ async function fetchBalance() {
 }
 
 /**
+ * Updates the spore estimate display based on selected model
+ */
+function updateEstimate() {
+  const estimateEl = document.getElementById("imageEstimate");
+  const modelSelect = document.getElementById("model");
+  if (!estimateEl || !modelSelect || !availableModels.length) return;
+
+  const selectedModelValue = modelSelect.value;
+  const model = availableModels.find(
+    (m) => m.name === selectedModelValue || m.id === selectedModelValue,
+  );
+
+  if (!model || !model.pricing) {
+    estimateEl.textContent = "Spore Estimate: —";
+    estimateEl.className = "text-sm text-gray-500";
+    return;
+  }
+
+  const pricingValue = getPricingValue(model.pricing);
+  if (pricingValue !== null) {
+    estimateEl.textContent = `Spore Estimate: ${pricingValue.toFixed(4)} pollen`;
+    estimateEl.className = "text-sm text-blue-700 font-semibold";
+  } else {
+    estimateEl.textContent = "Spore Estimate: —";
+    estimateEl.className = "text-sm text-gray-500";
+  }
+}
+
+/**
  * Toggles the seed input field based on seed mode
  */
 
@@ -254,8 +310,20 @@ document.addEventListener("DOMContentLoaded", () => {
   // Fetch models from backend, then load saved settings and set up listeners
   fetchModels().finally(() => {
     loadFormSettings();
+    updateEstimate();
     if (modelSel) modelSel.classList.remove("opacity-0");
   });
+
+  // Add event listener for model changes to update estimate
+  if (modelSel) {
+    modelSel.addEventListener("change", updateEstimate);
+  }
+
+  // Fetch balance on page load
+  setTimeout(() => {
+    fetchBalance();
+  }, 100);
+
   updateHistoryDisplay();
   checkAndUpdateApiKeyStatus();
 
@@ -269,87 +337,6 @@ document.addEventListener("DOMContentLoaded", () => {
         settingsBtn.click();
       }
     });
-  }
-
-  // set up dynamic image estimate fetching (if imageEstimate element exists)
-  const imageEstimateEl = document.getElementById("imageEstimate");
-  const formatSporeValue = (value) => {
-    const num = typeof value === "number" ? value : parseFloat(value);
-    if (!Number.isFinite(num)) return String(value);
-    return num.toFixed(8);
-  };
-
-  if (imageEstimateEl) {
-    async function fetchImageEstimate() {
-      try {
-        const model = document.getElementById("model").value;
-        const sizeInfo = computeImageSizeFromControls();
-        const size = sizeInfo ? sizeInfo.size : "1024x1024";
-        const quality = document.getElementById("quality").value;
-        const guidance = document.getElementById("guidance").value;
-
-        const body = { model, size, quality, guidance };
-        const headers = { "Content-Type": "application/json" };
-        try {
-          const userKey = localStorage.getItem("ask_ai_user_api_key");
-          if (userKey) headers["Authorization"] = `Bearer ${userKey}`;
-        } catch (e) {}
-        const res = await fetch("/api/estimate_price", {
-          method: "POST",
-          headers,
-          body: JSON.stringify(body),
-        });
-        const data = await res.json();
-        if (data && data.success && data.pricing) {
-          const p = data.pricing;
-          let friendly = null;
-          if (
-            typeof p.estimated_total !== "undefined" &&
-            p.estimated_total !== null
-          ) {
-            friendly = `${formatSporeValue(p.estimated_total)} ${
-              p.currency || ""
-            }`.trim();
-          } else if (p.estimate_text) {
-            friendly = p.estimate_text.replace(/^\s*Estimated:\s*/i, "");
-          } else {
-            const keys = [
-              "completionImageTokens",
-              "promptImageTokens",
-              "promptTextTokens",
-              "promptTokens",
-              "completionTokens",
-            ];
-            const parts = [];
-            keys.forEach((k) => {
-              if (p[k] !== undefined)
-                parts.push(`${k.replace(/([A-Z])/g, " $1")}: ${p[k]}`);
-            });
-            friendly = parts.length ? parts.join(", ") : JSON.stringify(p);
-          }
-          imageEstimateEl.textContent = `Spore Estimate: ${friendly}`;
-        } else if (data && data.error) {
-          imageEstimateEl.textContent = `Spore Estimate: unavailable (${data.error})`;
-        } else {
-          imageEstimateEl.textContent = "Spore Estimate: unknown";
-        }
-      } catch (err) {
-        imageEstimateEl.textContent = "Spore Estimate: unknown (network)";
-      }
-    }
-
-    ["model", "aspectRatio", "baseResolution", "quality", "guidance"].forEach(
-      (id) => {
-        const el = document.getElementById(id);
-        if (el) el.addEventListener("change", fetchImageEstimate);
-      },
-    );
-
-    // Fetch initial estimate and balance after a brief delay to ensure form values are fully loaded
-    setTimeout(() => {
-      fetchImageEstimate();
-      fetchBalance();
-    }, 0);
   }
 });
 
@@ -381,6 +368,7 @@ async function fetchModels() {
     console.debug &&
       console.debug("fetchModels: API /api/models response", data);
     if (res.status === 200 && data.success && Array.isArray(data.models)) {
+      availableModels = data.models; // Store models for estimate calculation
       const sel = document.getElementById("model");
       if (!sel) return;
 
@@ -446,33 +434,6 @@ async function fetchModels() {
       }
 
       // Build two buckets: non-pro => Regular, pro => Pro
-      function getPricingValue(pricing) {
-        if (!pricing) return null;
-        const keys = [
-          "completionVideoTokens",
-          "completionVideoSeconds",
-          "completionImageTokens",
-          "promptImageTokens",
-          "pollen_per_image",
-          "amount",
-          "pollen_per_1k_tokens",
-          "pollen_per_token",
-          "price",
-        ];
-        for (const k of keys) {
-          if (Object.prototype.hasOwnProperty.call(pricing, k)) {
-            const v = pricing[k];
-            const vnum =
-              typeof v === "number"
-                ? v
-                : typeof v === "string"
-                  ? parseFloat(v)
-                  : NaN;
-            if (!Number.isNaN(vnum) && vnum > 0) return vnum;
-          }
-        }
-        return null;
-      }
 
       const regularItems = [];
       const regularVideoItems = [];
@@ -563,6 +524,7 @@ async function fetchModels() {
 
       // final fallback: select the first option
       if (!sel.value && sel.options.length) sel.selectedIndex = 0;
+      updateEstimate();
       return; // done with API path
     }
 
