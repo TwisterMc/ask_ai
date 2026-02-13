@@ -40,7 +40,7 @@ function checkAndUpdateApiKeyStatus() {
   if (!generateBtn) return;
 
   try {
-    const hasApiKey = !!localStorage.getItem("ask_ai_user_api_key");
+    const hasApiKey = !!getUserApiKey();
 
     if (hasApiKey) {
       // API key present - enable button and hide warning
@@ -205,7 +205,7 @@ async function fetchBalance() {
   if (!balanceDisplayEl) return;
 
   try {
-    const userKey = localStorage.getItem("ask_ai_user_api_key");
+    const userKey = getUserApiKey();
     if (!userKey) {
       balanceDisplayEl.textContent = "Balance: — (no API key)";
       balanceDisplayEl.className = "text-sm text-gray-500";
@@ -274,22 +274,56 @@ async function fetchBalance() {
 function updateEstimate() {
   const estimateEl = document.getElementById("imageEstimate");
   const modelSelect = document.getElementById("model");
-  if (!estimateEl || !modelSelect || !availableModels.length) return;
+  if (!estimateEl || !modelSelect || !availableModels.length) {
+    console.debug &&
+      console.debug("updateEstimate: missing elements or no models", {
+        estimateEl: !!estimateEl,
+        modelSelect: !!modelSelect,
+        availableModelsLength: availableModels.length,
+      });
+    return;
+  }
 
   const selectedModelValue = modelSelect.value;
+  console.debug &&
+    console.debug("updateEstimate: selected value", selectedModelValue);
   const model = availableModels.find(
     (m) => m.name === selectedModelValue || m.id === selectedModelValue,
   );
+  console.debug && console.debug("updateEstimate: found model", model);
 
   if (!model || !model.pricing) {
+    console.debug &&
+      console.debug("updateEstimate: no model or no pricing", {
+        model: !!model,
+        pricing: model?.pricing,
+      });
     estimateEl.textContent = "Spore Estimate: —";
     estimateEl.className = "text-sm text-gray-500";
     return;
   }
 
+  console.debug &&
+    console.debug("updateEstimate: model pricing object", model.pricing);
+
   const pricingValue = getPricingValue(model.pricing);
+  console.debug &&
+    console.debug("updateEstimate: raw pricing value", pricingValue);
   if (pricingValue !== null) {
-    estimateEl.textContent = `Spore Estimate: ${pricingValue.toFixed(4)} pollen`;
+    // Handle very small pricing values to avoid showing as free
+    let displayValue;
+    if (pricingValue === 0) {
+      displayValue = "< 0.0001"; // Show that it's not free but very small
+    } else if (pricingValue < 0.0001) {
+      // For extremely small values, show with more decimal places
+      displayValue = pricingValue.toFixed(8);
+    } else {
+      // Round to 4 decimal places for normal small values
+      displayValue = (Math.round(pricingValue * 10000) / 10000).toFixed(4);
+    }
+    console.debug &&
+      console.debug("updateEstimate: display value", displayValue);
+    estimateEl.textContent = `Spore Estimate: ${displayValue} pollen`;
     estimateEl.className = "text-sm text-blue-700 font-semibold";
   } else {
     estimateEl.textContent = "Spore Estimate: —";
@@ -369,6 +403,13 @@ async function fetchModels() {
       console.debug("fetchModels: API /api/models response", data);
     if (res.status === 200 && data.success && Array.isArray(data.models)) {
       availableModels = data.models; // Store models for estimate calculation
+      console.debug &&
+        console.debug("fetchModels: loaded models", availableModels.length);
+      console.debug &&
+        console.debug(
+          "fetchModels: first model pricing",
+          availableModels[0]?.pricing,
+        );
       const sel = document.getElementById("model");
       if (!sel) return;
 
@@ -803,7 +844,7 @@ async function generateImage() {
     return;
   }
 
-  // Check if user has an API key
+  // Get API key (UI should prevent calling this without a key, but check anyway)
   const userKey = getUserApiKey();
   if (!userKey) {
     showError(
@@ -1083,12 +1124,8 @@ async function enhancePrompt() {
 
   try {
     const headers = { "Content-Type": "application/json" };
-    try {
-      const userKey = localStorage.getItem("ask_ai_user_api_key");
-      if (userKey) headers["Authorization"] = `Bearer ${userKey}`;
-    } catch (e) {
-      console.debug("No user API key in localStorage", e);
-    }
+    const userKey = getUserApiKey();
+    if (userKey) headers["Authorization"] = `Bearer ${userKey}`;
     const style = document.getElementById("style").value;
     const response = await fetch("/enhance_prompt", {
       method: "POST",
