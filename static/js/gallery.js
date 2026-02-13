@@ -2,20 +2,20 @@
 let galleryItemsMap = {};
 let currentGalleryItem = null;
 
+function getUserApiKey() {
+  try {
+    return (
+      localStorage.getItem("ask_ai_user_api_key") ||
+      sessionStorage.getItem("ask_ai_user_api_key")
+    );
+  } catch (e) {
+    return null;
+  }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   const statusEl = document.getElementById("galleryStatus");
   const gridEl = document.getElementById("galleryGrid");
-
-  function getUserApiKey() {
-    try {
-      return (
-        localStorage.getItem("ask_ai_user_api_key") ||
-        sessionStorage.getItem("ask_ai_user_api_key")
-      );
-    } catch (e) {
-      return null;
-    }
-  }
 
   function escapeHtml(value) {
     const div = document.createElement("div");
@@ -31,17 +31,6 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (e) {
       return iso;
     }
-  }
-
-  async function confirmDelete(message) {
-    try {
-      if (window.confirmModal && window.confirmModal.show) {
-        return await window.confirmModal.show(message);
-      }
-    } catch (e) {
-      /* fallback */
-    }
-    return confirm(message);
   }
 
   async function loadGallery() {
@@ -154,33 +143,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <div class="text-sm text-gray-600 whitespace-pre-wrap">${promptText}</div>
           </div>
           <div class="text-xs text-gray-500">${metaBits.join(" • ")}</div>
-          <div class="flex items-center gap-2">
-            <a
-              class="text-sm text-blue-600 underline"
-              href="${escapeHtml(item.url)}"
-              target="_blank"
-              rel="noopener"
-            >
-              Open
-            </a>
-            <button
-              class="text-sm text-red-600 underline"
-              type="button"
-              data-id="${escapeHtml(item.id)}"
-            >
-              Remove
-            </button>
-          </div>
         `;
-
-        const removeBtn = content.querySelector("button[data-id]");
-        removeBtn.addEventListener("click", async () => {
-          const ok = await confirmDelete(
-            "Remove this saved item? This cannot be undone."
-          );
-          if (!ok) return;
-          await removeItem(item.id);
-        });
 
         card.appendChild(content);
         gridEl.appendChild(card);
@@ -192,97 +155,76 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  async function removeItem(id) {
-    const key = getUserApiKey();
-    if (!key) return;
-    try {
-      const res = await fetch("/api/unstar", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${key}`,
-        },
-        body: JSON.stringify({ id }),
-      });
-      const data = await res.json();
-      if (!data.success) {
-        throw new Error(data.error || "Failed to remove item");
-      }
-      await loadGallery();
-    } catch (err) {
-      statusEl.textContent = err.message || "Failed to remove item";
-      statusEl.className =
-        "text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-4 mb-4";
-    }
-  }
-
   loadGallery();
 });
 
-// Modal functions for gallery
+// Gallery -> modal functions (duplicated from main.js to avoid loading main.js here)
 function openGalleryItemModal(itemId) {
   const item = galleryItemsMap[itemId];
-  if (!item || item.type !== "image") return;
+  if (!item) return;
 
   currentGalleryItem = item;
-  const modal = document.getElementById("imageModal");
-  const modalImage = document.getElementById("modalImage");
-
-  modalImage.src = item.url;
-  modalImage.alt = item.prompt || "Saved image";
-  modal.classList.remove("hidden");
-
-  // Update star button state for gallery item
+  openImageModal(item.url, item.prompt || "Saved image");
   updateGalleryStarButton();
 }
 
 function updateGalleryStarButton() {
-  const starBtn = document.getElementById("starButtonModal");
-  const starIcon = document.getElementById("starIconModal");
+  // Delete button - no special styling needed, just ensure it's visible
+  const starBtn = document.getElementById("deleteButtonModal");
+  const starIcon = document.getElementById("deleteIconModal");
 
-  if (!currentGalleryItem) {
-    if (starBtn) {
-      starBtn.setAttribute("aria-pressed", "false");
-      starIcon.classList.remove("fill-current", "text-yellow-300");
-      starIcon.classList.add("fill-none", "text-white");
-    }
-    return;
-  }
-
-  // For gallery items, they're already starred, so show as filled
-  if (starBtn) {
-    starBtn.setAttribute("aria-pressed", "true");
-    starIcon.classList.remove("fill-none", "text-white");
-    starIcon.classList.add("fill-current", "text-yellow-300");
+  if (starBtn && starIcon) {
+    // Reset to default delete button styling
+    starBtn.removeAttribute("aria-pressed");
+    starIcon.classList.remove("fill-current", "text-yellow-300");
+    starIcon.classList.add("text-white");
   }
 }
 
-function closeImageModalOnBackdrop(event) {
-  if (event.target.id === "imageModal") {
-    closeImageModal();
-  }
-}
-
-function closeImageModal() {
-  const modal = document.getElementById("imageModal");
-  modal.classList.add("hidden");
-  currentGalleryItem = null;
-}
-
-function downloadImage() {
-  const modalImage = document.getElementById("modalImage");
-  if (!modalImage.src) return;
-
-  const link = document.createElement("a");
-  link.href = modalImage.src;
-  link.download = `image-${Date.now()}.png`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-}
-
-function starCurrentMedia() {
+async function deleteCurrentMedia() {
   if (!currentGalleryItem) return;
-  // Gallery items are already starred, so just close the modal
-  closeImageModal();
+
+  // Confirm deletion using the modal dialog
+  let confirmed = false;
+  try {
+    if (window.confirmModal && window.confirmModal.show) {
+      confirmed = await window.confirmModal.show(
+        `Delete "${currentGalleryItem.prompt || "this image"}" from your gallery?`,
+      );
+    } else {
+      confirmed = confirm(
+        `Delete "${currentGalleryItem.prompt || "this image"}" from your gallery?`,
+      );
+    }
+  } catch (e) {
+    confirmed = confirm(
+      `Delete "${currentGalleryItem.prompt || "this image"}" from your gallery?`,
+    );
+  }
+
+  if (!confirmed) return;
+
+  const key = getUserApiKey();
+  if (!key) return;
+
+  try {
+    const res = await fetch("/api/unstar", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${key}`,
+      },
+      body: JSON.stringify({ id: currentGalleryItem.id }),
+    });
+    const data = await res.json();
+    if (!data.success) {
+      throw new Error(data.error || "Failed to delete item");
+    }
+
+    // Close modal and reload gallery
+    closeImageModal();
+    window.location.reload();
+  } catch (err) {
+    alert(`Error deleting item: ${err.message}`);
+  }
 }

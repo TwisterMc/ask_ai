@@ -6,12 +6,6 @@ let currentImagePrompt = "";
 // Track current media for starring
 let lastGeneratedMedia = null;
 
-// Track modal focus management
-let previousActiveElement = null;
-let modalFocusableElements = [];
-let firstFocusableElement = null;
-let lastFocusableElement = null;
-
 // Form settings management
 
 /**
@@ -71,8 +65,12 @@ function checkAndUpdateApiKeyStatus() {
 function loadFormSettings() {
   const settings = JSON.parse(localStorage.getItem("formSettings")) || {};
 
+  // Check if we're on the main page (form elements exist)
+  const modelEl = document.getElementById("model");
+  if (!modelEl) return; // Not on main page
+
   // Always set values to ensure consistency, using saved settings or defaults
-  document.getElementById("model").value = settings.model || "gptimage";
+  modelEl.value = settings.model || "gptimage";
   document.getElementById("style").value = settings.style || "photographic";
   const baseResolutionEl = document.getElementById("baseResolution");
   const aspectRatioEl = document.getElementById("aspectRatio");
@@ -627,6 +625,8 @@ function addToHistory(prompt) {
  */
 function updateHistoryDisplay() {
   const historyDiv = document.getElementById("prompt-history");
+  if (!historyDiv) return; // Not on main page
+
   historyDiv.innerHTML = promptHistory
     .map((prompt, index) => {
       // Properly escape the prompt for the onclick attribute
@@ -678,66 +678,69 @@ function useHistoryPrompt(event, prompt) {
 /**
  * Shows the notification with animation
  */
-function showNotification() {
-  const notification = document.getElementById("prompt-notification");
-  notification.classList.remove("hidden");
-  // Wait a tiny bit for the display:block to take effect
-  setTimeout(() => {
-    notification.classList.remove("translate-y-full");
-  }, 10);
+async function starCurrentMedia() {
+  const starButtonModal = document.getElementById("starButtonModal");
 
-  // Auto-hide after 5 seconds
-  setTimeout(() => {
-    hideNotification();
-  }, 10000);
+  if (!lastGeneratedMedia) return;
+
+  const userKey = getUserApiKey();
+  if (!userKey) {
+    showError(
+      "API key required. Click 'AI Settings' in the footer to add your Pollinations API key.",
+    );
+    return;
+  }
+
+  if (starButtonModal) starButtonModal.disabled = true;
+  const isStarred = !!lastGeneratedMedia.starredId;
+
+  try {
+    if (isStarred) {
+      const res = await fetch("/api/unstar", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${userKey}`,
+        },
+        body: JSON.stringify({ id: lastGeneratedMedia.starredId }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        throw new Error(data.error || "Failed to remove media");
+      }
+      lastGeneratedMedia.starredId = null;
+    } else {
+      const res = await fetch("/api/star_media", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${userKey}`,
+        },
+        body: JSON.stringify(lastGeneratedMedia),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        throw new Error(data.error || "Failed to save media");
+      }
+      if (data.item && data.item.id) {
+        lastGeneratedMedia.starredId = data.item.id;
+      }
+    }
+    updateStarButtons();
+  } catch (err) {
+    if (starButtonModal) starButtonModal.disabled = false;
+    showError(err.message || "Failed to update saved media");
+    updateStarButtons();
+    return;
+  } finally {
+    if (starButtonModal) starButtonModal.disabled = false;
+  }
 }
 
-/**
- * Hides the notification with animation
- */
-function hideNotification() {
-  const notification = document.getElementById("prompt-notification");
-  notification.classList.add("translate-y-full");
-  // Wait for animation to finish before hiding
-  setTimeout(() => {
-    notification.classList.add("hidden");
-  }, 300);
-}
-
-/**
- * Scrolls smoothly to the prompt input field
- */
-function scrollToPrompt() {
-  const promptElement = document.getElementById("prompt");
-  promptElement.scrollIntoView({ behavior: "smooth", block: "center" });
-  promptElement.focus();
-
-  // Hide the notification
-  hideNotification();
-}
-
-// Image generation and prompt enhancement
-
-/**
- * Sets form controls enabled/disabled state
- * Updates ARIA attributes accordingly
- * @param {boolean} disabled - Whether to disable the controls
- */
 function setFormControlsDisabled(disabled) {
-  // Get all form controls except history-related elements
-  const controls = [
-    "generateButton",
-    "enhanceButton",
-    "prompt",
-    "model",
-    "style",
-    "aspectRatio",
-    "baseResolution",
-    "quality",
-    "guidance",
-  ].map((id) => document.getElementById(id));
-
-  // Update form controls disabled states
+  const controls = document.querySelectorAll(
+    'input:not([type="hidden"]), select, textarea, button[type="submit"]',
+  );
   controls.forEach((control) => {
     if (disabled) {
       control.setAttribute("disabled", "");
@@ -760,7 +763,6 @@ function getUserApiKey() {
 }
 
 function resetStarUI() {
-  const starStatus = document.getElementById("starStatus");
   const starButtonModal = document.getElementById("starButtonModal");
   const starIconModal = document.getElementById("starIconModal");
   if (starButtonModal) {
@@ -776,7 +778,7 @@ function resetStarUI() {
     starIconModal.classList.add("fill-none");
     starIconModal.classList.remove("fill-current");
   }
-  if (starStatus) starStatus.textContent = "";
+  // starStatus element removed; visual state is handled via star icon and aria attributes
 }
 
 function showStarUI() {
@@ -821,13 +823,18 @@ function updateStarButtons() {
  * @returns {Promise<void>}
  */
 async function generateImage() {
-  const prompt = document.getElementById("prompt").value;
-  const loading = document.getElementById("loading");
-  const result = document.getElementById("result");
-  const error = document.getElementById("error");
-  const img = document.getElementById("generated-image");
-  const resultMessage = document.getElementById("resultMessage");
-  const imageResult = document.getElementById("imageResult");
+  const promptEl = document.getElementById("prompt");
+  const loadingEl = document.getElementById("loading");
+  const resultEl = document.getElementById("result");
+  const errorEl = document.getElementById("error");
+  const imgEl = document.getElementById("generated-image");
+  const resultMessageEl = document.getElementById("resultMessage");
+  const imageResultEl = document.getElementById("imageResult");
+
+  // Check if we're on the right page (elements exist)
+  if (!promptEl || !loadingEl || !resultEl) return;
+
+  const prompt = promptEl.value;
 
   if (!prompt) {
     showError("Please enter a prompt");
@@ -843,9 +850,9 @@ async function generateImage() {
     return;
   }
 
-  loading.classList.remove("hidden");
-  result.classList.add("hidden");
-  if (resultMessage) resultMessage.classList.add("hidden");
+  loadingEl.classList.remove("hidden");
+  resultEl.classList.add("hidden");
+  if (resultMessageEl) resultMessageEl.classList.add("hidden");
   if (imageResult) imageResult.classList.add("hidden");
   resetStarUI();
   lastGeneratedMedia = null;
@@ -942,8 +949,8 @@ async function generateImage() {
     }
 
     // Otherwise assume it's an image (data.url is a data: or image URL)
-    img.src = data.url;
-    img.alt = `AI generated image based on prompt: ${prompt}`;
+    imgEl.src = data.url;
+    imgEl.alt = `AI generated image based on prompt: ${prompt}`;
     currentImagePrompt = prompt; // Store the prompt for download
     if (imageResult) imageResult.classList.remove("hidden");
     if (resultMessage) resultMessage.classList.add("hidden");
@@ -951,7 +958,7 @@ async function generateImage() {
     lastGeneratedMedia = { ...generationMeta, url: data.url, type: "image" };
     showStarUI();
     // Wait for the image to load before scrolling
-    img.onload = () => {
+    imgEl.onload = () => {
       result.scrollIntoView({ behavior: "smooth", block: "nearest" });
     };
     // Refresh balance after successful generation
@@ -970,13 +977,9 @@ async function generateImage() {
  * @returns {Promise<void>}
  */
 async function starCurrentMedia() {
-  const starStatus = document.getElementById("starStatus");
   const starButtonModal = document.getElementById("starButtonModal");
 
-  if (!lastGeneratedMedia) {
-    if (starStatus) starStatus.textContent = "Nothing to save yet.";
-    return;
-  }
+  if (!lastGeneratedMedia) return;
 
   const userKey = getUserApiKey();
   if (!userKey) {
@@ -988,8 +991,6 @@ async function starCurrentMedia() {
 
   if (starButtonModal) starButtonModal.disabled = true;
   const isStarred = !!lastGeneratedMedia.starredId;
-  if (starStatus)
-    starStatus.textContent = isStarred ? "Removing..." : "Saving...";
 
   try {
     if (isStarred) {
@@ -1006,7 +1007,6 @@ async function starCurrentMedia() {
         throw new Error(data.error || "Failed to remove media");
       }
       lastGeneratedMedia.starredId = null;
-      if (starStatus) starStatus.textContent = "Removed from My Gallery.";
     } else {
       const res = await fetch("/api/star_media", {
         method: "POST",
@@ -1023,12 +1023,10 @@ async function starCurrentMedia() {
       if (data.item && data.item.id) {
         lastGeneratedMedia.starredId = data.item.id;
       }
-      if (starStatus) starStatus.textContent = "Saved to My Gallery.";
     }
     updateStarButtons();
   } catch (err) {
     if (starButtonModal) starButtonModal.disabled = false;
-    if (starStatus) starStatus.textContent = "Star action failed.";
     showError(err.message || "Failed to update saved media");
     updateStarButtons();
     return;
@@ -1388,184 +1386,59 @@ function escapeHtml(text) {
 }
 
 /**
- * Opens the image modal with the full-size image
- * @param {string} imageUrl - URL of the image to display
- * @param {string} altText - Alt text for the image
+ * Shows an error message to the user
+ * @param {string} message - The error message to display
  */
-function openImageModal(imageUrl, altText) {
-  const modal = document.getElementById("imageModal");
-  const modalImage = document.getElementById("modalImage");
-
-  modalImage.src = imageUrl;
-  modalImage.alt = altText;
-
-  modal.classList.remove("hidden");
-  document.body.classList.add("overflow-hidden");
-
-  // Handle clicking outside the modal to close it
-  modal.addEventListener("click", (event) => {
-    if (event.target === modal) {
-      closeImageModal();
-    }
-  });
-
-  // Handle Escape key to close modal
-  document.addEventListener("keydown", handleEscapeKey);
-
-  // Set up focus trap
-  focusTrapOnModal(modal);
-}
-
-/**
- * Closes the image modal when clicking on backdrop
- * @param {Event} event - Click event
- */
-function closeImageModalOnBackdrop(event) {
-  if (event.target.id === "imageModal") {
-    closeImageModal();
-  }
-}
-
-/**
- * Closes the image modal
- */
-function closeImageModal() {
-  const modal = document.getElementById("imageModal");
-  modal.classList.add("hidden");
-  document.body.classList.remove("overflow-hidden");
-
-  // Remove event listeners
-  document.removeEventListener("keydown", handleEscapeKey);
-  modal.removeEventListener("keydown", trapFocus);
-
-  // Restore focus to the previous element
-  if (previousActiveElement) {
-    previousActiveElement.focus();
-  }
-}
-
-/**
- * Handles Escape key press to close modal
- * @param {KeyboardEvent} event - The keyboard event
- */
-function handleEscapeKey(event) {
-  if (event.key === "Escape") {
-    closeImageModal();
-  }
-}
-
-/**
- * Sanitizes a string for use in a filename
- * @param {string} text - The text to sanitize
- * @returns {string} The sanitized text
- */
-function sanitizeFilename(text) {
-  // Clean up special prefixes first
-  const cleanText = text
-    .replace(/^✨\s*/, "") // Remove sparkle prefix
-    .replace(/^Sure!\s*Here['s:]?\s*/i, "") // Remove "Sure! Here" prefix
-    .replace(/^Here['s:]?\s*/i, ""); // Remove "Here's" prefix
-
-  // Then sanitize for filename
-  return cleanText
-    .replace(/[^a-z0-9-_\s]/gi, "") // Remove invalid chars
-    .replace(/\s+/g, "-") // Replace spaces with hyphens
-    .substring(0, 50) // Limit length
-    .trim(); // Remove trailing spaces
-}
-
-/**
- * Downloads the currently displayed modal image
- */
-async function downloadImage() {
-  const modalImage = document.getElementById("modalImage");
-  const imageUrl = modalImage.src;
-  // Use stored prompt instead of trying to extract from alt text
-  const sanitizedPrompt = sanitizeFilename(currentImagePrompt);
-  const timestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
-  const filename = sanitizedPrompt
-    ? `ai-image-${sanitizedPrompt}-${timestamp}.png`
-    : `ai-generated-image-${timestamp}.png`;
-
-  try {
-    const response = await fetch(imageUrl);
-    const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(a);
-  } catch (error) {
-    console.error("Error downloading image:", error);
-    showError("Error downloading image");
-  }
-}
-
-/**
- * Sets up focus trap within the modal
- * @param {HTMLElement} modal - The modal element
- */
-function focusTrapOnModal(modal) {
-  // Get all focusable elements within the modal
-  modalFocusableElements = Array.from(
-    modal.querySelectorAll(`
-        a[href], area[href], input:not([disabled]), select:not([disabled]), 
-        textarea:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])
-    `),
-  );
-
-  if (modalFocusableElements.length === 0) return;
-
-  firstFocusableElement = modalFocusableElements[0];
-  lastFocusableElement =
-    modalFocusableElements[modalFocusableElements.length - 1];
-
-  // Remember the currently focused element
-  previousActiveElement = document.activeElement;
-
-  // Focus the first element in the modal
-  firstFocusableElement.focus();
-
-  // Add event listener to trap focus within the modal
-  modal.addEventListener("keydown", trapFocus);
-}
-
-/**
- * Traps the focus within the modal
- * @param {KeyboardEvent} event - The keyboard event
- */
-function trapFocus(event) {
-  if (event.key !== "Tab") return;
-
-  if (event.shiftKey) {
-    // Shift + Tab
-    if (document.activeElement === firstFocusableElement) {
-      event.preventDefault();
-      lastFocusableElement.focus();
-    }
-  } else {
-    // Tab
-    if (document.activeElement === lastFocusableElement) {
-      event.preventDefault();
-      firstFocusableElement.focus();
-    }
-  }
-}
-
-// Utility to show error message
 function showError(message) {
   const errorDiv = document.getElementById("error");
   const errorMsg = document.getElementById("error-message");
-  const closeBtn = document.getElementById("error-close");
-  errorMsg.textContent = message;
-  errorDiv.classList.remove("hidden");
-  errorDiv.focus();
+  if (errorDiv && errorMsg) {
+    errorMsg.textContent = message;
+    errorDiv.classList.remove("hidden");
+    errorDiv.focus();
+  }
 }
 
+/**
+ * Hides the error message
+ */
 function hideError() {
   const errorDiv = document.getElementById("error");
-  errorDiv.classList.add("hidden");
+  if (errorDiv) {
+    errorDiv.classList.add("hidden");
+  }
+}
+
+/**
+ * Shows the prompt notification
+ */
+function showNotification() {
+  const notification = document.getElementById("prompt-notification");
+  if (notification) {
+    notification.classList.remove("hidden", "translate-y-full");
+  }
+}
+
+/**
+ * Hides the prompt notification
+ */
+function hideNotification() {
+  const notification = document.getElementById("prompt-notification");
+  if (notification) {
+    notification.classList.add("translate-y-full");
+    // After transition, hide completely
+    setTimeout(() => {
+      notification.classList.add("hidden");
+    }, 300);
+  }
+}
+
+/**
+ * Scrolls to the prompt input field
+ */
+function scrollToPrompt() {
+  const promptEl = document.getElementById("prompt");
+  if (promptEl) {
+    promptEl.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
 }
