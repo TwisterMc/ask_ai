@@ -822,6 +822,13 @@ async function generateImage() {
   document.body.classList.add("overflow-hidden");
   setFormControlsDisabled(true);
 
+  const loadingText = loadingEl.querySelector("p");
+  const originalLoadingText = loadingText.textContent;
+  loadingText.textContent = "Generating image...";
+  const loadingTimeout = setTimeout(() => {
+    loadingText.textContent = "... still working, hold on";
+  }, 30000);
+
   try {
     // Add to history when generating an image
     addToHistory(prompt);
@@ -928,6 +935,8 @@ async function generateImage() {
   } catch (err) {
     showError(err.message);
   } finally {
+    clearTimeout(loadingTimeout);
+    loadingText.textContent = originalLoadingText;
     loading.classList.add("hidden");
     document.body.classList.remove("overflow-hidden");
     setFormControlsDisabled(false);
@@ -1067,6 +1076,11 @@ async function enhancePrompt() {
   document.body.classList.add("overflow-hidden");
   setFormControlsDisabled(true);
 
+  // Set a timeout to change the loading message after 45 seconds
+  const loadingTimeout = setTimeout(() => {
+    loadingText.textContent = "... still working, hold on";
+  }, 20000);
+
   try {
     const headers = { "Content-Type": "application/json" };
     try {
@@ -1093,6 +1107,7 @@ async function enhancePrompt() {
   } catch (err) {
     showError(err.message);
   } finally {
+    clearTimeout(loadingTimeout);
     loading.classList.add("hidden");
     document.body.classList.remove("overflow-hidden");
     loadingText.textContent = originalLoadingText;
