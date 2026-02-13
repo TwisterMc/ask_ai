@@ -35,6 +35,99 @@
 
     {% include 'footer.html' %}
 
+    <!-- Image Modal -->
+    <div
+      id="imageModal"
+      class="hidden fixed inset-0 z-50 overflow-auto bg-black/90 p-4 flex items-center justify-center"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="image-modal-title"
+      onclick="closeImageModalOnBackdrop(event)"
+    >
+      <div
+        class="relative max-w-[95vw] max-h-[95vh]"
+        onclick="event.stopPropagation()"
+        role="document"
+      >
+        <div class="relative">
+          <img
+            id="modalImage"
+            class="max-w-full max-h-[95vh] mx-auto rounded-lg"
+            src=""
+            alt=""
+          />
+          <!-- Overlay buttons container -->
+          <div class="absolute top-4 right-4 flex items-center space-x-2">
+            <button
+              type="button"
+              id="starButtonModal"
+              onclick="starCurrentMedia()"
+              class="bg-black/50 text-white p-2 rounded-lg hover:bg-black/70 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-offset-2 transition-colors backdrop-blur-sm"
+              aria-label="Save to My Gallery"
+              aria-pressed="false"
+              title="Save to My Gallery"
+            >
+              <svg
+                id="starIconModal"
+                class="w-6 h-6 fill-none"
+                fill="currentColor"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.956a1 1 0 00.95.69h4.162c.969 0 1.371 1.24.588 1.81l-3.367 2.447a1 1 0 00-.363 1.118l1.286 3.956c.3.921-.755 1.688-1.538 1.118l-3.367-2.447a1 1 0 00-1.176 0l-3.367 2.447c-.783.57-1.838-.197-1.538-1.118l1.286-3.956a1 1 0 00-.363-1.118L2.97 9.383c-.783-.57-.38-1.81.588-1.81h4.162a1 1 0 00.95-.69l1.286-3.956z"
+                />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onclick="downloadImage()"
+              class="bg-black/50 text-white p-2 rounded-lg hover:bg-black/70 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors backdrop-blur-sm"
+              aria-label="Download image"
+            >
+              <svg
+                class="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onclick="closeImageModal()"
+              class="bg-black/50 text-white p-2 rounded-lg hover:bg-black/70 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors backdrop-blur-sm"
+              aria-label="Close modal"
+            >
+              <svg
+                class="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="/static/js/main.js"></script>
     <script src="/static/js/gallery.js"></script>
   </body>
 </html>

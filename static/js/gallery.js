@@ -1,3 +1,7 @@
+// Gallery-specific global state for modal
+let galleryItemsMap = {};
+let currentGalleryItem = null;
+
 document.addEventListener("DOMContentLoaded", () => {
   const statusEl = document.getElementById("galleryStatus");
   const gridEl = document.getElementById("galleryGrid");
@@ -64,6 +68,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const items = Array.isArray(data.items) ? data.items : [];
       gridEl.innerHTML = "";
+      galleryItemsMap = {};
 
       if (!items.length) {
         statusEl.textContent =
@@ -78,18 +83,62 @@ document.addEventListener("DOMContentLoaded", () => {
         "text-sm text-gray-700 bg-white border rounded-lg p-4 mb-4";
 
       items.forEach((item) => {
+        // Store item for modal access
+        galleryItemsMap[item.id] = item;
+
         const card = document.createElement("div");
         card.className =
-          "bg-white rounded-lg shadow-lg p-3 flex flex-col gap-3";
+          "bg-white rounded-lg shadow-lg overflow-hidden flex flex-col gap-3";
 
-        const mediaHtml =
-          item.type === "video"
-            ? `<video class="w-full rounded" src="${escapeHtml(
-                item.url,
-              )}" controls></video>`
-            : `<img class="w-full rounded" src="${escapeHtml(
-                item.url,
-              )}" alt="Saved image" />`;
+        // Media container with zoom button overlay
+        const mediaContainer = document.createElement("div");
+        mediaContainer.className = "relative";
+
+        let mediaElement;
+        if (item.type === "video") {
+          mediaElement = document.createElement("video");
+          mediaElement.src = item.url;
+          mediaElement.className = "w-full";
+          mediaElement.controls = true;
+        } else {
+          mediaElement = document.createElement("img");
+          mediaElement.src = item.url;
+          mediaElement.alt = "Saved image";
+          mediaElement.className =
+            "w-full cursor-pointer hover:opacity-90 transition-opacity";
+          // Make image clickable
+          mediaElement.addEventListener("click", (e) => {
+            e.preventDefault();
+            openGalleryItemModal(item.id);
+          });
+        }
+
+        mediaContainer.appendChild(mediaElement);
+
+        // Zoom button overlay (only for images)
+        if (item.type === "image") {
+          const zoomBtn = document.createElement("button");
+          zoomBtn.type = "button";
+          zoomBtn.className =
+            "absolute top-4 right-4 bg-black/50 hover:bg-black/70 text-white p-2 rounded-lg transition-colors";
+          zoomBtn.setAttribute("aria-label", "View image in full size");
+          zoomBtn.innerHTML = `
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m4-3H6" />
+            </svg>
+          `;
+          zoomBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            openGalleryItemModal(item.id);
+          });
+          mediaContainer.appendChild(zoomBtn);
+        }
+
+        card.appendChild(mediaContainer);
+
+        // Card content
+        const content = document.createElement("div");
+        content.className = "p-3 flex flex-col gap-3";
 
         const promptText = escapeHtml(item.prompt || "");
         const metaBits = [
@@ -99,8 +148,7 @@ document.addEventListener("DOMContentLoaded", () => {
           item.created_at ? `Saved: ${formatDate(item.created_at)}` : null,
         ].filter(Boolean);
 
-        card.innerHTML = `
-          ${mediaHtml}
+        content.innerHTML = `
           <div>
             <div class="text-sm text-gray-700 font-semibold mb-1">Prompt</div>
             <div class="text-sm text-gray-600 whitespace-pre-wrap">${promptText}</div>
@@ -125,15 +173,16 @@ document.addEventListener("DOMContentLoaded", () => {
           </div>
         `;
 
-        const removeBtn = card.querySelector("button[data-id]");
+        const removeBtn = content.querySelector("button[data-id]");
         removeBtn.addEventListener("click", async () => {
           const ok = await confirmDelete(
-            "Remove this saved item? This cannot be undone.",
+            "Remove this saved item? This cannot be undone."
           );
           if (!ok) return;
           await removeItem(item.id);
         });
 
+        card.appendChild(content);
         gridEl.appendChild(card);
       });
     } catch (err) {
@@ -169,3 +218,71 @@ document.addEventListener("DOMContentLoaded", () => {
 
   loadGallery();
 });
+
+// Modal functions for gallery
+function openGalleryItemModal(itemId) {
+  const item = galleryItemsMap[itemId];
+  if (!item || item.type !== "image") return;
+
+  currentGalleryItem = item;
+  const modal = document.getElementById("imageModal");
+  const modalImage = document.getElementById("modalImage");
+
+  modalImage.src = item.url;
+  modalImage.alt = item.prompt || "Saved image";
+  modal.classList.remove("hidden");
+
+  // Update star button state for gallery item
+  updateGalleryStarButton();
+}
+
+function updateGalleryStarButton() {
+  const starBtn = document.getElementById("starButtonModal");
+  const starIcon = document.getElementById("starIconModal");
+
+  if (!currentGalleryItem) {
+    if (starBtn) {
+      starBtn.setAttribute("aria-pressed", "false");
+      starIcon.classList.remove("fill-current", "text-yellow-300");
+      starIcon.classList.add("fill-none", "text-white");
+    }
+    return;
+  }
+
+  // For gallery items, they're already starred, so show as filled
+  if (starBtn) {
+    starBtn.setAttribute("aria-pressed", "true");
+    starIcon.classList.remove("fill-none", "text-white");
+    starIcon.classList.add("fill-current", "text-yellow-300");
+  }
+}
+
+function closeImageModalOnBackdrop(event) {
+  if (event.target.id === "imageModal") {
+    closeImageModal();
+  }
+}
+
+function closeImageModal() {
+  const modal = document.getElementById("imageModal");
+  modal.classList.add("hidden");
+  currentGalleryItem = null;
+}
+
+function downloadImage() {
+  const modalImage = document.getElementById("modalImage");
+  if (!modalImage.src) return;
+
+  const link = document.createElement("a");
+  link.href = modalImage.src;
+  link.download = `image-${Date.now()}.png`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+function starCurrentMedia() {
+  if (!currentGalleryItem) return;
+  // Gallery items are already starred, so just close the modal
+  closeImageModal();
+}
