@@ -518,14 +518,18 @@ def enhance_prompt_api(request):
             return jsonify({"success": False, "error": "No prompt provided"})
         # Request multiple options in a consistent format
         enhancement_prompt = f"Generate 3 enhanced versions of this prompt for an AI image generator. Format your response EXACTLY as shown, with no other text:\n\nOption 1: [short title]\n[the enhanced prompt text here]\n\nOption 2: [short title]\n[the enhanced prompt text here]\n\nOption 3: [short title]\n[the enhanced prompt text here]\n\nOriginal prompt: {prompt}"
-        encoded_prompt = quote(enhancement_prompt)
+        # Encode all special characters, including '/', to keep the prompt in a single path segment.
+        encoded_prompt = quote(enhancement_prompt, safe="")
         # Build enhancement URL without referrer initially
         enhancement_url = f"{API_CONFIG['TEXT_API']}{encoded_prompt}"
-        
-        # Add referrer if not localhost (API doesn't accept IP addresses as referrer)
+
+        # Add referrer if not localhost or an IP address (API doesn't accept IPs as referrer)
         host = request.host or API_CONFIG['REFERRER']
-        if host and not host.startswith('127.0.0.1') and not host.startswith('localhost'):
-            enhancement_url += f"?referrer={host}"
+        host_base = host.split(':')[0] if host else None
+        is_ip = bool(host_base and re.match(r"^\d{1,3}(?:\.\d{1,3}){3}$", host_base))
+        params = {}
+        if host_base and not is_ip and host_base not in {'localhost', '127.0.0.1', '0.0.0.0'}:
+            params['referrer'] = host_base
         
         # Request is being made to enhancement API (URL redacted in logs)
         
@@ -540,7 +544,12 @@ def enhance_prompt_api(request):
             headers['Authorization'] = incoming_auth
         
         try:
-            response = requests.get(enhancement_url, headers=headers, timeout=API_CONFIG['TIMEOUT'])
+            response = requests.get(
+                enhancement_url,
+                headers=headers,
+                params=params if params else None,
+                timeout=API_CONFIG['TIMEOUT'],
+            )
         except Timeout:
             logger.debug("Timeout connecting to enhancement API")
             return jsonify({"success": False, "error": "The AI enhancement service took too long to respond. Please try again."})
