@@ -572,10 +572,11 @@ def enhance_prompt_api(request):
             return jsonify({"success": False, "error": "Request must be JSON"})
         data = request.get_json(silent=True) or {}
         prompt = data.get("prompt")
+        style = data.get("style", "photographic")
         if not prompt:
             return jsonify({"success": False, "error": "No prompt provided"})
         # Request multiple options in a consistent format
-        enhancement_prompt = f"Generate 3 enhanced versions of this prompt for an AI image generator. Format your response EXACTLY as shown, with no other text:\n\nOption 1: [short title]\n[the enhanced prompt text here]\n\nOption 2: [short title]\n[the enhanced prompt text here]\n\nOption 3: [short title]\n[the enhanced prompt text here]\n\nOriginal prompt: {prompt}"
+        enhancement_prompt = f"Generate 3 enhanced versions of this prompt for an AI image generator in {style} style. Format your response EXACTLY as shown, with no other text:\n\nOption 1: [short title]\n[the enhanced prompt text here]\n\nOption 2: [short title]\n[the enhanced prompt text here]\n\nOption 3: [short title]\n[the enhanced prompt text here]\n\nOriginal prompt: {prompt}"
         # Encode all special characters, including '/', to keep the prompt in a single path segment.
         encoded_prompt = quote(enhancement_prompt, safe="")
         # Build enhancement URL without referrer initially

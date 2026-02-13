@@ -998,6 +998,52 @@ async function starCurrentMedia() {
 }
 
 /**
+ * Shows the style selection modal for prompt enhancement
+ * @returns {void}
+ */
+function showStyleModal() {
+  const modal = document.getElementById("styleModal");
+  modal.classList.remove("hidden");
+  document.body.classList.add("overflow-hidden");
+  setFormControlsDisabled(true);
+}
+
+/**
+ * Closes the style selection modal
+ * @returns {void}
+ */
+function closeStyleModal() {
+  const modal = document.getElementById("styleModal");
+  modal.classList.add("hidden");
+  document.body.classList.remove("overflow-hidden");
+  setFormControlsDisabled(false);
+}
+
+/**
+ * Closes the style modal when clicking on backdrop
+ * @param {Event} event - The click event
+ * @returns {void}
+ */
+function closeStyleModalOnBackdrop(event) {
+  if (event.target === event.currentTarget) {
+    closeStyleModal();
+  }
+}
+
+/**
+ * Selects a style and proceeds with enhancement
+ * @param {string} style - The selected style
+ * @returns {Promise<void>}
+ */
+async function selectStyle(style) {
+  // Set the style in the hidden dropdown
+  document.getElementById("style").value = style;
+  closeStyleModal();
+  // Now proceed with enhancement
+  await enhancePrompt();
+}
+
+/**
  * Enhances the current prompt using AI
  * Shows loading state and handles errors
  * @returns {Promise<void>}
@@ -1029,10 +1075,11 @@ async function enhancePrompt() {
     } catch (e) {
       console.debug("No user API key in localStorage", e);
     }
+    const style = document.getElementById("style").value;
     const response = await fetch("/enhance_prompt", {
       method: "POST",
       headers,
-      body: JSON.stringify({ prompt: originalPrompt }),
+      body: JSON.stringify({ prompt: originalPrompt, style: style }),
     });
 
     const data = await response.json();

@@ -96,7 +96,7 @@
                 class="px-4 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
                 aria-label="Enhance current prompt"
                 aria-disabled="false"
-                onclick="enhancePrompt()"
+                onclick="showStyleModal()"
               >
                 Enhance
               </button>
@@ -136,6 +136,7 @@
             </div>
           </div>
 
+          <div class="grid grid-cols-1 gap-4 mb-4">
           <div class="grid grid-cols-2 gap-4 mb-4">
             <div>
               <label
@@ -178,79 +179,6 @@
             </div>
             <div>
               <label
-                for="style"
-                class="block text-gray-700 text-sm font-bold mb-2"
-                >Style:</label
-              >
-              <select
-                id="style"
-                onchange="saveFormSettings()"
-                class="w-full px-3 py-2 border rounded-lg disabled:opacity-50"
-                aria-disabled="false"
-              >
-                <option value="photographic">Photographic</option>
-                <option value="digital art">Digital Art</option>
-                <option value="cinematic">Cinematic</option>
-                <option value="anime">Anime</option>
-                <option value="comic book">Comic Book</option>
-                <option value="fantasy art">Fantasy Art</option>
-                <option value="impressionist">Impressionist</option>
-                <option value="oil painting">Oil Painting</option>
-                <option value="watercolor">Watercolor</option>
-                <option value="3D render">3D Render</option>
-                <option value="concept art">Concept Art</option>
-                <option value="minimalist">Minimalist</option>
-                <option value="steampunk">Steampunk</option>
-                <option value="cyberpunk">Cyberpunk</option>
-                <option value="art nouveau">Art Nouveau</option>
-                <option value="vintage photo">Vintage Photo</option>
-                <option value="neon">Neon</option>
-                <option value="graffiti">Graffiti</option>
-                <option value="pixel art">Pixel Art</option>
-                <option value="sketch">Sketch</option>
-                <option value="baroque">Baroque</option>
-                <option value="art deco">Art Deco</option>
-                <option value="vaporwave">Vaporwave</option>
-              </select>
-            </div>
-          </div>
-          <div class="grid grid-cols-2 gap-4 mb-4">
-            <div>
-              <label
-                for="aspectRatio"
-                class="block text-gray-700 text-sm font-bold mb-2"
-                >Aspect Ratio:</label
-              >
-              <select
-                id="aspectRatio"
-                onchange="saveFormSettings()"
-                class="w-full px-3 py-2 border rounded-lg disabled:opacity-50"
-                aria-disabled="false"
-              >
-                <option value="1:1">1:1</option>
-                <option value="16:9">16:9</option>
-                <option value="9:16">9:16</option>
-              </select>
-
-              <label
-                for="baseResolution"
-                class="block text-gray-700 text-xs font-semibold mt-3 mb-1"
-                >Base Resolution</label
-              >
-              <select
-                id="baseResolution"
-                onchange="saveFormSettings()"
-                class="w-full px-2 py-1 border rounded-lg text-sm"
-                aria-label="Base resolution for output"
-              >
-                <option value="512">512px</option>
-                <option value="768">768px</option>
-                <option value="1024" selected>1024px</option>
-                <option value="1536">1536px</option>
-              </select>
-            </div>
-            <div>
-              <label
                 for="quality"
                 class="block text-gray-700 text-sm font-bold mb-2"
                 >Quality Level:</label
@@ -268,6 +196,45 @@
               </select>
             </div>
           </div>
+          <input type="hidden" id="style" value="photographic">
+          <div class="grid grid-cols-2 gap-4 mb-4">
+            <div>
+              <label
+                for="aspectRatio"
+                class="block text-gray-700 text-sm font-bold mb-2"
+                >Aspect Ratio:</label
+              >
+              <select
+                id="aspectRatio"
+                onchange="saveFormSettings()"
+                class="w-full px-3 py-2 border rounded-lg disabled:opacity-50"
+                aria-disabled="false"
+              >
+                <option value="1:1">1:1</option>
+                <option value="16:9">16:9</option>
+                <option value="9:16">9:16</option>
+              </select>
+            </div>
+            <div>
+              <label
+                for="baseResolution"
+                class="block text-gray-700 text-sm font-bold mb-2"
+                >Base Resolution:</label
+              >
+              <select
+                id="baseResolution"
+                onchange="saveFormSettings()"
+                class="w-full px-3 py-2 border rounded-lg disabled:opacity-50"
+                aria-label="Base resolution for output"
+              >
+                <option value="512">512px</option>
+                <option value="768">768px</option>
+                <option value="1024" selected>1024px</option>
+                <option value="1536">1536px</option>
+              </select>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-4 mb-4">
           <div class="mb-4">
             <label
               for="guidance"
@@ -311,8 +278,9 @@
               class="w-full px-3 py-2 border rounded-lg"
             />
           </div>
+          </div>
 
-          <div id="result" class="mt-6 hidden" role="region" aria-live="polite">
+          <div id="result" class="hidden" role="region" aria-live="polite">
             <div
               id="resultMessage"
               class="hidden text-sm text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-3"
@@ -361,7 +329,7 @@
           </div>
 
           <!-- Prompt History Accordion -->
-          <div class="mt-8 border-t pt-4">
+          <div class="border-t pt-4">
             <button
               type="button"
               onclick="toggleHistory()"
@@ -497,6 +465,158 @@
                   d="M6 18L18 6M6 6l12 12"
                 />
               </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Style Selection Modal -->
+    <div
+      id="styleModal"
+      class="hidden fixed inset-0 z-50 overflow-auto bg-black/50 p-4 flex items-center justify-center"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="style-modal-title"
+      onclick="closeStyleModalOnBackdrop(event)"
+    >
+      <div
+        class="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-auto"
+        onclick="event.stopPropagation()"
+        role="document"
+      >
+        <div
+          class="sticky top-0 bg-white border-b px-4 sm:px-6 py-4 flex items-center justify-between z-10"
+        >
+          <h3
+            id="style-modal-title"
+            class="text-lg sm:text-xl font-bold text-gray-800"
+          >
+            Choose Art Style
+          </h3>
+          <button
+            onclick="closeStyleModal()"
+            class="text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded p-1 -mr-1"
+            aria-label="Close modal"
+            type="button"
+          >
+            <svg
+              class="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+        </div>
+        <div class="px-4 sm:px-6 py-4">
+          <p class="text-gray-600 mb-4">Select the art style for prompt enhancement:</p>
+          <div class="grid grid-cols-3 gap-3 mb-6">
+            <button onclick="selectStyle('photographic')" class="style-option p-3 border rounded-lg hover:bg-blue-50 hover:border-blue-300 text-left">
+              <div class="font-medium text-sm">Photographic</div>
+              <div class="text-xs text-gray-500">Realistic</div>
+            </button>
+            <button onclick="selectStyle('digital art')" class="style-option p-3 border rounded-lg hover:bg-blue-50 hover:border-blue-300 text-left">
+              <div class="font-medium text-sm">Digital Art</div>
+              <div class="text-xs text-gray-500">Modern digital</div>
+            </button>
+            <button onclick="selectStyle('cinematic')" class="style-option p-3 border rounded-lg hover:bg-blue-50 hover:border-blue-300 text-left">
+              <div class="font-medium text-sm">Cinematic</div>
+              <div class="text-xs text-gray-500">Movie-like</div>
+            </button>
+            <button onclick="selectStyle('anime')" class="style-option p-3 border rounded-lg hover:bg-blue-50 hover:border-blue-300 text-left">
+              <div class="font-medium text-sm">Anime</div>
+              <div class="text-xs text-gray-500">Japanese animation</div>
+            </button>
+            <button onclick="selectStyle('comic book')" class="style-option p-3 border rounded-lg hover:bg-blue-50 hover:border-blue-300 text-left">
+              <div class="font-medium text-sm">Comic Book</div>
+              <div class="text-xs text-gray-500">Classic comic</div>
+            </button>
+            <button onclick="selectStyle('fantasy art')" class="style-option p-3 border rounded-lg hover:bg-blue-50 hover:border-blue-300 text-left">
+              <div class="font-medium text-sm">Fantasy Art</div>
+              <div class="text-xs text-gray-500">Magical themes</div>
+            </button>
+            <button onclick="selectStyle('impressionist')" class="style-option p-3 border rounded-lg hover:bg-blue-50 hover:border-blue-300 text-left">
+              <div class="font-medium text-sm">Impressionist</div>
+              <div class="text-xs text-gray-500">Painterly</div>
+            </button>
+            <button onclick="selectStyle('oil painting')" class="style-option p-3 border rounded-lg hover:bg-blue-50 hover:border-blue-300 text-left">
+              <div class="font-medium text-sm">Oil Painting</div>
+              <div class="text-xs text-gray-500">Traditional oil</div>
+            </button>
+            <button onclick="selectStyle('watercolor')" class="style-option p-3 border rounded-lg hover:bg-blue-50 hover:border-blue-300 text-left">
+              <div class="font-medium text-sm">Watercolor</div>
+              <div class="text-xs text-gray-500">Soft watercolor</div>
+            </button>
+            <button onclick="selectStyle('3D render')" class="style-option p-3 border rounded-lg hover:bg-blue-50 hover:border-blue-300 text-left">
+              <div class="font-medium text-sm">3D Render</div>
+              <div class="text-xs text-gray-500">Computer 3D</div>
+            </button>
+            <button onclick="selectStyle('concept art')" class="style-option p-3 border rounded-lg hover:bg-blue-50 hover:border-blue-300 text-left">
+              <div class="font-medium text-sm">Concept Art</div>
+              <div class="text-xs text-gray-500">Design concepts</div>
+            </button>
+            <button onclick="selectStyle('minimalist')" class="style-option p-3 border rounded-lg hover:bg-blue-50 hover:border-blue-300 text-left">
+              <div class="font-medium text-sm">Minimalist</div>
+              <div class="text-xs text-gray-500">Simple & clean</div>
+            </button>
+            <button onclick="selectStyle('steampunk')" class="style-option p-3 border rounded-lg hover:bg-blue-50 hover:border-blue-300 text-left">
+              <div class="font-medium text-sm">Steampunk</div>
+              <div class="text-xs text-gray-500">Victorian sci-fi</div>
+            </button>
+            <button onclick="selectStyle('cyberpunk')" class="style-option p-3 border rounded-lg hover:bg-blue-50 hover:border-blue-300 text-left">
+              <div class="font-medium text-sm">Cyberpunk</div>
+              <div class="text-xs text-gray-500">Futuristic neon</div>
+            </button>
+            <button onclick="selectStyle('art nouveau')" class="style-option p-3 border rounded-lg hover:bg-blue-50 hover:border-blue-300 text-left">
+              <div class="font-medium text-sm">Art Nouveau</div>
+              <div class="text-xs text-gray-500">Flowing organic</div>
+            </button>
+            <button onclick="selectStyle('vintage photo')" class="style-option p-3 border rounded-lg hover:bg-blue-50 hover:border-blue-300 text-left">
+              <div class="font-medium text-sm">Vintage Photo</div>
+              <div class="text-xs text-gray-500">Old photography</div>
+            </button>
+            <button onclick="selectStyle('neon')" class="style-option p-3 border rounded-lg hover:bg-blue-50 hover:border-blue-300 text-left">
+              <div class="font-medium text-sm">Neon</div>
+              <div class="text-xs text-gray-500">Bright neon lights</div>
+            </button>
+            <button onclick="selectStyle('graffiti')" class="style-option p-3 border rounded-lg hover:bg-blue-50 hover:border-blue-300 text-left">
+              <div class="font-medium text-sm">Graffiti</div>
+              <div class="text-xs text-gray-500">Street art</div>
+            </button>
+            <button onclick="selectStyle('pixel art')" class="style-option p-3 border rounded-lg hover:bg-blue-50 hover:border-blue-300 text-left">
+              <div class="font-medium text-sm">Pixel Art</div>
+              <div class="text-xs text-gray-500">Retro pixels</div>
+            </button>
+            <button onclick="selectStyle('sketch')" class="style-option p-3 border rounded-lg hover:bg-blue-50 hover:border-blue-300 text-left">
+              <div class="font-medium text-sm">Sketch</div>
+              <div class="text-xs text-gray-500">Hand-drawn sketch</div>
+            </button>
+            <button onclick="selectStyle('baroque')" class="style-option p-3 border rounded-lg hover:bg-blue-50 hover:border-blue-300 text-left">
+              <div class="font-medium text-sm">Baroque</div>
+              <div class="text-xs text-gray-500">Ornate & dramatic</div>
+            </button>
+            <button onclick="selectStyle('art deco')" class="style-option p-3 border rounded-lg hover:bg-blue-50 hover:border-blue-300 text-left">
+              <div class="font-medium text-sm">Art Deco</div>
+              <div class="text-xs text-gray-500">Geometric luxury</div>
+            </button>
+            <button onclick="selectStyle('vaporwave')" class="style-option p-3 border rounded-lg hover:bg-blue-50 hover:border-blue-300 text-left">
+              <div class="font-medium text-sm">Vaporwave</div>
+              <div class="text-xs text-gray-500">80s nostalgia</div>
+            </button>
+          </div>
+          <div class="flex justify-end space-x-3">
+            <button
+              onclick="closeStyleModal()"
+              class="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              Cancel
             </button>
           </div>
         </div>
