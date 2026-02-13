@@ -182,32 +182,29 @@ function updateGalleryStarButton() {
 }
 
 async function deleteCurrentMedia() {
-  if (!currentGalleryItem) return;
-
-  // Confirm deletion using the modal dialog
-  let confirmed = false;
-  try {
-    if (window.confirmModal && window.confirmModal.show) {
-      confirmed = await window.confirmModal.show(
-        `Delete "${currentGalleryItem.prompt || "this image"}" from your gallery?`,
-      );
-    } else {
-      confirmed = confirm(
-        `Delete "${currentGalleryItem.prompt || "this image"}" from your gallery?`,
-      );
-    }
-  } catch (e) {
-    confirmed = confirm(
-      `Delete "${currentGalleryItem.prompt || "this image"}" from your gallery?`,
-    );
+  console.log(
+    "deleteCurrentMedia called, currentGalleryItem:",
+    currentGalleryItem,
+  );
+  if (!currentGalleryItem) {
+    console.error("No currentGalleryItem set");
+    return;
   }
 
+  // Confirm deletion
+  const confirmed = confirm(
+    `Delete "${currentGalleryItem.prompt || "this image"}" from your gallery?`,
+  );
+
+  console.log("Deletion confirmed:", confirmed);
   if (!confirmed) return;
 
   const key = getUserApiKey();
+  console.log("API key:", key ? "present" : "missing");
   if (!key) return;
 
   try {
+    console.log("Sending delete request for id:", currentGalleryItem.id);
     const res = await fetch("/api/unstar", {
       method: "POST",
       headers: {
@@ -217,6 +214,7 @@ async function deleteCurrentMedia() {
       body: JSON.stringify({ id: currentGalleryItem.id }),
     });
     const data = await res.json();
+    console.log("Delete response:", res.status, data);
     if (!data.success) {
       throw new Error(data.error || "Failed to delete item");
     }
@@ -225,6 +223,7 @@ async function deleteCurrentMedia() {
     closeImageModal();
     window.location.reload();
   } catch (err) {
+    console.error("Error deleting item:", err);
     alert(`Error deleting item: ${err.message}`);
   }
 }
