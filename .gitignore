@@ -10,3 +10,5 @@ __pycache__/
 *.tmp
 .idea/
 node_modules/
+static/starred_media/*
+data/starred/*

@@ -2,15 +2,19 @@ import io
 import base64
 import os
 import uuid
+import json
+import hashlib
+import shutil
 import requests
 from flask import jsonify
 from PIL import Image
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 from config import API_CONFIG
 import re
 import time
 from requests.exceptions import Timeout, ConnectionError, RequestException
 import logging
+from datetime import datetime
 
 # module logger
 logger = logging.getLogger(__name__)
@@ -21,6 +25,60 @@ _PRICING_CACHE_TTL = 60  # seconds
 # simple in-memory cache for models list
 _MODELS_CACHE = {}
 _MODELS_CACHE_TTL = 300  # seconds
+
+_STARRED_MEDIA_DIR = os.path.join(os.path.dirname(__file__), 'static', 'starred_media')
+_STARRED_META_DIR = os.path.join(os.path.dirname(__file__), 'data', 'starred')
+
+
+def _get_request_token(request_obj):
+    try:
+        auth = request_obj.headers.get('Authorization')
+    except Exception:
+        auth = None
+    if not auth:
+        return None
+    token = auth.strip()
+    if token.lower().startswith('bearer '):
+        token = token[7:].strip()
+    return token or None
+
+
+def _owner_id_from_token(token):
+    digest = hashlib.sha256(token.encode('utf-8')).hexdigest()
+    return digest[:16]
+
+
+def _owner_meta_path(owner_id):
+    return os.path.join(_STARRED_META_DIR, f"{owner_id}.json")
+
+
+def _load_starred_items(owner_id):
+    try:
+        path = _owner_meta_path(owner_id)
+        if not os.path.exists(path):
+            return []
+        with open(path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+
+def _save_starred_items(owner_id, items):
+    os.makedirs(_STARRED_META_DIR, exist_ok=True)
+    path = _owner_meta_path(owner_id)
+    tmp_path = f"{path}.tmp"
+    with open(tmp_path, 'w', encoding='utf-8') as f:
+        json.dump(items, f, ensure_ascii=True, indent=2)
+    os.replace(tmp_path, path)
+
+
+def _strip_internal_fields(item):
+    if not isinstance(item, dict):
+        return item
+    cleaned = dict(item)
+    cleaned.pop('_file_path', None)
+    return cleaned
 
 
 def chat_api(request):
@@ -838,6 +896,169 @@ def generate_image_api(request):
     except Exception as e:
         logger.exception("Unexpected error in generate_image_api")
         return jsonify({"success": False, "error": f"Unexpected error: {str(e)}"}) 
+
+
+def star_media_api(request):
+    try:
+        if not request.is_json:
+            return jsonify({"success": False, "error": "Request must be JSON"})
+
+        token = _get_request_token(request)
+        if not token:
+            return jsonify({"success": False, "error": "Authorization required"}), 401
+
+        data = request.get_json(silent=True) or {}
+        media_url = data.get('url')
+        prompt = data.get('prompt')
+        media_type = data.get('type') or 'image'
+
+        if not media_url or not prompt:
+            return jsonify({"success": False, "error": "Missing media url or prompt"}), 400
+
+        owner_id = _owner_id_from_token(token)
+        owner_dir = os.path.join(_STARRED_MEDIA_DIR, owner_id)
+        os.makedirs(owner_dir, exist_ok=True)
+
+        saved_filename = None
+        saved_path = None
+
+        if isinstance(media_url, str) and media_url.startswith('data:'):
+            match = re.match(r'^data:([^;]+);base64,(.+)$', media_url)
+            if not match:
+                return jsonify({"success": False, "error": "Invalid data URL"}), 400
+            mime = match.group(1).lower()
+            b64_data = match.group(2)
+            try:
+                raw = base64.b64decode(b64_data)
+            except Exception:
+                return jsonify({"success": False, "error": "Invalid base64 payload"}), 400
+
+            ext_map = {
+                'image/png': 'png',
+                'image/jpeg': 'jpg',
+                'image/jpg': 'jpg',
+                'image/webp': 'webp',
+                'image/gif': 'gif',
+            }
+            ext = ext_map.get(mime, 'png')
+            saved_filename = f"{uuid.uuid4().hex}.{ext}"
+            saved_path = os.path.join(owner_dir, saved_filename)
+            with open(saved_path, 'wb') as f:
+                f.write(raw)
+        else:
+            if not isinstance(media_url, str):
+                return jsonify({"success": False, "error": "Invalid media URL"}), 400
+
+            parsed = urlparse(media_url)
+            if parsed.scheme in {'http', 'https'}:
+                if parsed.netloc != request.host:
+                    return jsonify({"success": False, "error": "Unsupported media host"}), 400
+                media_path = parsed.path
+            else:
+                media_path = media_url
+
+            if not media_path.startswith('/static/generated_videos/'):
+                return jsonify({"success": False, "error": "Only generated videos can be saved from URL"}), 400
+
+            source_path = os.path.join(os.path.dirname(__file__), media_path.lstrip('/'))
+            if not os.path.isfile(source_path):
+                return jsonify({"success": False, "error": "Source media not found"}), 404
+
+            ext = os.path.splitext(source_path)[1] or '.mp4'
+            saved_filename = f"{uuid.uuid4().hex}{ext}"
+            saved_path = os.path.join(owner_dir, saved_filename)
+            shutil.copy2(source_path, saved_path)
+            media_type = 'video'
+
+        host_url = request.host_url.rstrip('/')
+        public_path = f"/static/starred_media/{owner_id}/{saved_filename}"
+        public_url = f"{host_url}{public_path}"
+
+        item = {
+            'id': uuid.uuid4().hex,
+            'prompt': str(prompt),
+            'type': media_type,
+            'url': public_url,
+            'created_at': datetime.utcnow().isoformat() + 'Z',
+            'model': data.get('model'),
+            'style': data.get('style'),
+            'size': data.get('size'),
+            'quality': data.get('quality'),
+            'guidance': data.get('guidance'),
+            'seed': data.get('seed'),
+            'aspect_ratio': data.get('aspect_ratio'),
+        }
+        item['_file_path'] = saved_path
+
+        items = _load_starred_items(owner_id)
+        items.append(item)
+        _save_starred_items(owner_id, items)
+
+        return jsonify({"success": True, "item": _strip_internal_fields(item)})
+    except Exception as e:
+        logger.exception("Error starring media")
+        return jsonify({"success": False, "error": f"Error saving media: {str(e)}"})
+
+
+def list_starred_api(request):
+    try:
+        token = _get_request_token(request)
+        if not token:
+            return jsonify({"success": False, "error": "Authorization required"}), 401
+
+        owner_id = _owner_id_from_token(token)
+        items = _load_starred_items(owner_id)
+        cleaned = [_strip_internal_fields(item) for item in items]
+        return jsonify({"success": True, "items": cleaned})
+    except Exception as e:
+        logger.exception("Error listing starred media")
+        return jsonify({"success": False, "error": f"Error loading saved media: {str(e)}"})
+
+
+def unstar_media_api(request):
+    try:
+        if not request.is_json:
+            return jsonify({"success": False, "error": "Request must be JSON"}), 400
+
+        token = _get_request_token(request)
+        if not token:
+            return jsonify({"success": False, "error": "Authorization required"}), 401
+
+        data = request.get_json(silent=True) or {}
+        item_id = data.get('id')
+        if not item_id:
+            return jsonify({"success": False, "error": "Missing item id"}), 400
+
+        owner_id = _owner_id_from_token(token)
+        items = _load_starred_items(owner_id)
+        remaining = []
+        removed = None
+        for item in items:
+            if isinstance(item, dict) and item.get('id') == item_id:
+                removed = item
+            else:
+                remaining.append(item)
+
+        if removed is None:
+            return jsonify({"success": False, "error": "Item not found"}), 404
+
+        _save_starred_items(owner_id, remaining)
+
+        # best-effort file cleanup
+        try:
+            file_path = removed.get('_file_path') if isinstance(removed, dict) else None
+            if file_path:
+                abs_path = os.path.abspath(file_path)
+                base_dir = os.path.abspath(os.path.join(_STARRED_MEDIA_DIR, owner_id))
+                if abs_path.startswith(base_dir) and os.path.isfile(abs_path):
+                    os.remove(abs_path)
+        except Exception:
+            pass
+
+        return jsonify({"success": True})
+    except Exception as e:
+        logger.exception("Error removing starred media")
+        return jsonify({"success": False, "error": f"Error removing saved media: {str(e)}"})
 
 
 def estimate_price_api(request):

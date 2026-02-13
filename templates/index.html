@@ -314,7 +314,11 @@
           </div>
 
           <div id="result" class="mt-6 hidden" role="region" aria-live="polite">
-            <div class="relative">
+            <div
+              id="resultMessage"
+              class="hidden text-sm text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-3"
+            ></div>
+            <div id="imageResult" class="relative hidden">
               <img
                 id="generated-image"
                 class="w-full rounded-lg shadow-lg cursor-pointer hover:opacity-90 transition-opacity"
@@ -355,6 +359,12 @@
                 </svg>
               </button>
             </div>
+            <div
+              id="starStatus"
+              class="mt-2 text-sm text-gray-600"
+              role="status"
+              aria-live="polite"
+            ></div>
           </div>
 
           <!-- Prompt History Accordion -->
@@ -421,6 +431,30 @@
           />
           <!-- Overlay buttons container -->
           <div class="absolute top-4 right-4 flex items-center space-x-2">
+            <button
+              type="button"
+              id="starButtonModal"
+              onclick="starCurrentMedia()"
+              class="bg-black/50 text-white p-2 rounded-lg hover:bg-black/70 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-offset-2 transition-colors backdrop-blur-sm"
+              aria-label="Save to My Gallery"
+              aria-pressed="false"
+              title="Save to My Gallery"
+            >
+              <svg
+                id="starIconModal"
+                class="w-6 h-6 fill-none"
+                fill="currentColor"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.956a1 1 0 00.95.69h4.162c.969 0 1.371 1.24.588 1.81l-3.367 2.447a1 1 0 00-.363 1.118l1.286 3.956c.3.921-.755 1.688-1.538 1.118l-3.367-2.447a1 1 0 00-1.176 0l-3.367 2.447c-.783.57-1.838-.197-1.538-1.118l1.286-3.956a1 1 0 00-.363-1.118L2.97 9.383c-.783-.57-.38-1.81.588-1.81h4.162a1 1 0 00.95-.69l1.286-3.956z"
+                />
+              </svg>
+            </button>
             <button
               type="button"
               onclick="downloadImage()"

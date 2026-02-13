@@ -3,6 +3,8 @@ let promptHistory = JSON.parse(localStorage.getItem("promptHistory") || "[]");
 
 // Track current image prompt for downloads
 let currentImagePrompt = "";
+// Track current media for starring
+let lastGeneratedMedia = null;
 
 // Track modal focus management
 let previousActiveElement = null;
@@ -746,6 +748,73 @@ function setFormControlsDisabled(disabled) {
   });
 }
 
+function getUserApiKey() {
+  try {
+    return (
+      localStorage.getItem("ask_ai_user_api_key") ||
+      sessionStorage.getItem("ask_ai_user_api_key")
+    );
+  } catch (e) {
+    return null;
+  }
+}
+
+function resetStarUI() {
+  const starStatus = document.getElementById("starStatus");
+  const starButtonModal = document.getElementById("starButtonModal");
+  const starIconModal = document.getElementById("starIconModal");
+  if (starButtonModal) {
+    starButtonModal.disabled = false;
+    starButtonModal.classList.remove("text-yellow-300");
+    starButtonModal.setAttribute("aria-pressed", "false");
+    starButtonModal.setAttribute("aria-label", "Save to My Gallery");
+    starButtonModal.setAttribute("title", "Save to My Gallery");
+  }
+  if (starIconModal) {
+    starIconModal.classList.remove("text-yellow-300");
+    starIconModal.classList.add("text-white");
+    starIconModal.classList.add("fill-none");
+    starIconModal.classList.remove("fill-current");
+  }
+  if (starStatus) starStatus.textContent = "";
+}
+
+function showStarUI() {
+  updateStarButtons();
+}
+
+function updateStarButtons() {
+  const starButtonModal = document.getElementById("starButtonModal");
+  const starIconModal = document.getElementById("starIconModal");
+  const isStarred = !!(lastGeneratedMedia && lastGeneratedMedia.starredId);
+  if (starButtonModal) {
+    if (isStarred) {
+      starButtonModal.classList.add("text-yellow-300");
+      starButtonModal.setAttribute("aria-pressed", "true");
+      starButtonModal.setAttribute("aria-label", "Saved to My Gallery");
+      starButtonModal.setAttribute("title", "Saved to My Gallery");
+    } else {
+      starButtonModal.classList.remove("text-yellow-300");
+      starButtonModal.setAttribute("aria-pressed", "false");
+      starButtonModal.setAttribute("aria-label", "Save to My Gallery");
+      starButtonModal.setAttribute("title", "Save to My Gallery");
+    }
+  }
+  if (starIconModal) {
+    if (isStarred) {
+      starIconModal.classList.add("text-yellow-300");
+      starIconModal.classList.add("fill-current");
+      starIconModal.classList.remove("fill-none");
+      starIconModal.classList.remove("text-white");
+    } else {
+      starIconModal.classList.remove("text-yellow-300");
+      starIconModal.classList.remove("fill-current");
+      starIconModal.classList.add("fill-none");
+      starIconModal.classList.add("text-white");
+    }
+  }
+}
+
 /**
  * Generates an image based on the current form settings
  * Shows loading state and handles errors
@@ -757,6 +826,8 @@ async function generateImage() {
   const result = document.getElementById("result");
   const error = document.getElementById("error");
   const img = document.getElementById("generated-image");
+  const resultMessage = document.getElementById("resultMessage");
+  const imageResult = document.getElementById("imageResult");
 
   if (!prompt) {
     showError("Please enter a prompt");
@@ -764,13 +835,7 @@ async function generateImage() {
   }
 
   // Check if user has an API key
-  let userKey = null;
-  try {
-    userKey = localStorage.getItem("ask_ai_user_api_key");
-  } catch (e) {
-    // localStorage might be unavailable
-  }
-
+  const userKey = getUserApiKey();
   if (!userKey) {
     showError(
       "API key required. Click 'AI Settings' in the footer to add your Pollinations API key.",
@@ -780,6 +845,10 @@ async function generateImage() {
 
   loading.classList.remove("hidden");
   result.classList.add("hidden");
+  if (resultMessage) resultMessage.classList.add("hidden");
+  if (imageResult) imageResult.classList.add("hidden");
+  resetStarUI();
+  lastGeneratedMedia = null;
   hideError();
   document.body.classList.add("overflow-hidden");
   setFormControlsDisabled(true);
@@ -790,6 +859,7 @@ async function generateImage() {
 
     const style = document.getElementById("style").value;
     const model = document.getElementById("model").value;
+    const aspectRatio = document.getElementById("aspectRatio").value;
     const sizeInfo = computeImageSizeFromControls();
     const size = sizeInfo ? sizeInfo.size : "1024x1024";
     const quality = document.getElementById("quality").value;
@@ -821,12 +891,7 @@ async function generateImage() {
     console.debug && console.debug("Seed sent:", requestBody.seed);
 
     const headers = { "Content-Type": "application/json" };
-    try {
-      const userKey = localStorage.getItem("ask_ai_user_api_key");
-      if (userKey) headers["Authorization"] = `Bearer ${userKey}`;
-    } catch (e) {
-      console.debug("No user API key in localStorage", e);
-    }
+    if (userKey) headers["Authorization"] = `Bearer ${userKey}`;
     const response = await fetch("/generate", {
       method: "POST",
       headers,
@@ -841,15 +906,34 @@ async function generateImage() {
       throw new Error(data.error || "Failed to generate media");
     }
 
+    const generationMeta = {
+      prompt,
+      model,
+      style,
+      size,
+      quality,
+      guidance,
+      seed: requestBody.seed,
+      aspect_ratio: aspectRatio,
+    };
+
     // If the server returned a video (model produced video), handle gracefully.
     if (
       data.type === "video" ||
       (typeof data.url === "string" &&
         /\.mp4$|^https?:.*\/(?:static\/generated_videos)\/.+$/i.test(data.url))
     ) {
-      // Provide user-facing guidance instead of trying to show the video in the image slot.
+      if (resultMessage) {
+        resultMessage.innerHTML = `
+          <div class="font-semibold mb-1">The selected model produced a video.</div>
+          <a class="inline-block text-blue-600 underline" href="${data.url}" target="_blank" rel="noopener">Open generated video</a>
+        `;
+        resultMessage.classList.remove("hidden");
+      }
+      if (imageResult) imageResult.classList.add("hidden");
       result.classList.remove("hidden");
-      result.innerHTML = `\n        <div class="text-sm text-yellow-600 font-semibold mb-2">The selected model produced a video, not an image.</div>\n        <a class="inline-block text-blue-600 underline" href="${data.url}" target="_blank" rel="noopener">Open generated video</a>\n      `;
+      lastGeneratedMedia = { ...generationMeta, url: data.url, type: "video" };
+      showStarUI();
       // Store URL so downloadImage() or other UI can still reference it if needed
       currentImagePrompt = prompt;
       // Refresh balance after successful generation
@@ -861,7 +945,11 @@ async function generateImage() {
     img.src = data.url;
     img.alt = `AI generated image based on prompt: ${prompt}`;
     currentImagePrompt = prompt; // Store the prompt for download
+    if (imageResult) imageResult.classList.remove("hidden");
+    if (resultMessage) resultMessage.classList.add("hidden");
     result.classList.remove("hidden");
+    lastGeneratedMedia = { ...generationMeta, url: data.url, type: "image" };
+    showStarUI();
     // Wait for the image to load before scrolling
     img.onload = () => {
       result.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -874,6 +962,78 @@ async function generateImage() {
     loading.classList.add("hidden");
     document.body.classList.remove("overflow-hidden");
     setFormControlsDisabled(false);
+  }
+}
+
+/**
+ * Saves the last generated media to the private gallery
+ * @returns {Promise<void>}
+ */
+async function starCurrentMedia() {
+  const starStatus = document.getElementById("starStatus");
+  const starButtonModal = document.getElementById("starButtonModal");
+
+  if (!lastGeneratedMedia) {
+    if (starStatus) starStatus.textContent = "Nothing to save yet.";
+    return;
+  }
+
+  const userKey = getUserApiKey();
+  if (!userKey) {
+    showError(
+      "API key required. Click 'AI Settings' in the footer to add your Pollinations API key.",
+    );
+    return;
+  }
+
+  if (starButtonModal) starButtonModal.disabled = true;
+  const isStarred = !!lastGeneratedMedia.starredId;
+  if (starStatus)
+    starStatus.textContent = isStarred ? "Removing..." : "Saving...";
+
+  try {
+    if (isStarred) {
+      const res = await fetch("/api/unstar", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${userKey}`,
+        },
+        body: JSON.stringify({ id: lastGeneratedMedia.starredId }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        throw new Error(data.error || "Failed to remove media");
+      }
+      lastGeneratedMedia.starredId = null;
+      if (starStatus) starStatus.textContent = "Removed from My Gallery.";
+    } else {
+      const res = await fetch("/api/star_media", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${userKey}`,
+        },
+        body: JSON.stringify(lastGeneratedMedia),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        throw new Error(data.error || "Failed to save media");
+      }
+      if (data.item && data.item.id) {
+        lastGeneratedMedia.starredId = data.item.id;
+      }
+      if (starStatus) starStatus.textContent = "Saved to My Gallery.";
+    }
+    updateStarButtons();
+  } catch (err) {
+    if (starButtonModal) starButtonModal.disabled = false;
+    if (starStatus) starStatus.textContent = "Star action failed.";
+    showError(err.message || "Failed to update saved media");
+    updateStarButtons();
+    return;
+  } finally {
+    if (starButtonModal) starButtonModal.disabled = false;
   }
 }
 

@@ -7,7 +7,15 @@ from generators import (
     chat_api,
 )
 from generators import estimate_chat_price_api
-from generators import validate_api_key, check_balance_api, get_models_api, get_chat_models_api
+from generators import (
+    validate_api_key,
+    check_balance_api,
+    get_models_api,
+    get_chat_models_api,
+    star_media_api,
+    list_starred_api,
+    unstar_media_api,
+)
 import os
 
 # Load environment variables from .env file (for local development)
@@ -78,6 +86,11 @@ def chat_page():
     return render_template("chat.html")
 
 
+@app.route("/gallery")
+def gallery_page():
+    return render_template("gallery.html")
+
+
 @app.route('/api/chat', methods=['POST'])
 def api_chat():
     return chat_api(request)
@@ -106,6 +119,21 @@ def api_models():
 @app.route('/api/chat_models', methods=['GET'])
 def api_chat_models():
     return get_chat_models_api(request)
+
+
+@app.route('/api/star_media', methods=['POST'])
+def api_star_media():
+    return star_media_api(request)
+
+
+@app.route('/api/starred', methods=['GET'])
+def api_list_starred():
+    return list_starred_api(request)
+
+
+@app.route('/api/unstar', methods=['POST'])
+def api_unstar():
+    return unstar_media_api(request)
 
 
 

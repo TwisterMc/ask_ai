@@ -7,6 +7,7 @@ A web application that generates images and supports AI chat using the Pollinati
 - **AI Image Generation**: Generate images from text descriptions using various AI models
 - **AI Chat**: Chat with multiple text models via the Pollinations.AI API
 - **Prompt Enhancement**: Automatically enhance your prompts using AI
+- **Starred Gallery**: Save selected images/videos to a private gallery tied to your API key
 - **Password Generator**: Create secure, customizable passwords using either random characters or memorable random words
 - **API Key Management**: Store your Pollinations.AI API key securely in your browser's local storage
 - **Balance Checking**: Check your pollen balance directly from the settings panel
@@ -156,7 +157,8 @@ Your API key is stored only in your browser's localStorage and is never sent to 
    - Set creativity level
    - Configure seed (random or fixed value for reproducible results)
 5. Click "Generate Image" to create your image
-6. Previous prompts are saved in the history for easy reuse
+6. (Optional) Click "Star to My Gallery" to save the result privately
+7. Previous prompts are saved in the history for easy reuse
 
 ### AI Chat
 
@@ -183,11 +185,15 @@ Your API key is stored only in your browser's localStorage and is never sent to 
 - `POST /api/generate_password`: Generate a secure password (JSON: `{ "length": 20 }`)
 - `POST /api/validate_key`: Validate a Pollinations.AI API key (requires Authorization header)
 - `POST /api/check_balance`: Check pollen balance for an API key (requires Authorization header)
+- `POST /api/star_media`: Save a generated image/video to your private gallery (requires Authorization header)
+- `GET /api/starred`: List your saved items (requires Authorization header)
+- `POST /api/unstar`: Remove a saved item (requires Authorization header)
 - `GET /api/models`: Fetch image model metadata
 - `GET /api/chat_models`: Fetch available chat models
 - `GET /`: Main application interface
 - `GET /about`: About page
 - `GET /image`: Image generator interface
+- `GET /gallery`: Private saved gallery (requires API key in your browser)
 - `GET /chat`: Chat interface
 - `GET /password`: Password generator interface
 - `GET /image`: Image generator interface
