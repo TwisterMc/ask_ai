@@ -71,7 +71,7 @@ document.addEventListener("DOMContentLoaded", () => {
       statusEl.className =
         "text-sm text-gray-700 bg-white border rounded-lg p-4 mb-4";
 
-      items.forEach((item) => {
+      items.reverse().forEach((item) => {
         // Store item for modal access
         galleryItemsMap[item.id] = item;
 
