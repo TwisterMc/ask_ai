@@ -28,6 +28,7 @@ _MODELS_CACHE_TTL = 300  # seconds
 
 _STARRED_MEDIA_DIR = os.path.join(os.path.dirname(__file__), 'static', 'starred_media')
 _STARRED_META_DIR = os.path.join(os.path.dirname(__file__), 'data', 'starred')
+_PROMPTS_META_DIR = os.path.join(os.path.dirname(__file__), 'data', 'prompts')
 
 
 def _get_request_token(request_obj):
@@ -1060,6 +1061,118 @@ def unstar_media_api(request):
     except Exception as e:
         logger.exception("Error removing starred media")
         return jsonify({"success": False, "error": f"Error removing saved media: {str(e)}"})
+
+
+def _prompts_meta_path(owner_id):
+    return os.path.join(_PROMPTS_META_DIR, f"{owner_id}.json")
+
+
+def _load_prompts(owner_id):
+    try:
+        path = _prompts_meta_path(owner_id)
+        if not os.path.exists(path):
+            return []
+        with open(path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+
+def _save_prompts(owner_id, prompts):
+    os.makedirs(_PROMPTS_META_DIR, exist_ok=True)
+    path = _prompts_meta_path(owner_id)
+    tmp_path = f"{path}.tmp"
+    with open(tmp_path, 'w', encoding='utf-8') as f:
+        json.dump(prompts, f, ensure_ascii=True, indent=2)
+    os.replace(tmp_path, path)
+
+
+def save_prompt_api(request):
+    try:
+        if not request.is_json:
+            return jsonify({"success": False, "error": "Request must be JSON"}), 400
+
+        token = _get_request_token(request)
+        if not token:
+            return jsonify({"success": False, "error": "Authorization required"}), 401
+
+        data = request.get_json(silent=True) or {}
+        prompt_text = data.get('prompt', '').strip()
+
+        if not prompt_text:
+            return jsonify({"success": False, "error": "Prompt text cannot be empty"}), 400
+
+        owner_id = _owner_id_from_token(token)
+        prompts = _load_prompts(owner_id)
+
+        # Check if prompt already exists and remove it (to move to top)
+        prompts = [p for p in prompts if isinstance(p, dict) and p.get('text') != prompt_text]
+
+        # Add new prompt at the beginning
+        new_prompt = {
+            'id': uuid.uuid4().hex,
+            'text': prompt_text,
+            'created_at': datetime.utcnow().isoformat() + 'Z',
+        }
+        prompts.insert(0, new_prompt)
+
+        # Keep only last 50 prompts
+        prompts = prompts[:50]
+
+        _save_prompts(owner_id, prompts)
+
+        return jsonify({"success": True, "prompt": new_prompt})
+    except Exception as e:
+        logger.exception("Error saving prompt")
+        return jsonify({"success": False, "error": f"Error saving prompt: {str(e)}"}), 500
+
+
+def list_prompts_api(request):
+    try:
+        token = _get_request_token(request)
+        if not token:
+            return jsonify({"success": False, "error": "Authorization required"}), 401
+
+        owner_id = _owner_id_from_token(token)
+        prompts = _load_prompts(owner_id)
+        return jsonify({"success": True, "prompts": prompts})
+    except Exception as e:
+        logger.exception("Error listing prompts")
+        return jsonify({"success": False, "error": f"Error loading prompts: {str(e)}"}), 500
+
+
+def delete_prompt_api(request):
+    try:
+        if not request.is_json:
+            return jsonify({"success": False, "error": "Request must be JSON"}), 400
+
+        token = _get_request_token(request)
+        if not token:
+            return jsonify({"success": False, "error": "Authorization required"}), 401
+
+        data = request.get_json(silent=True) or {}
+        prompt_text = data.get('prompt', '').strip()
+
+        if not prompt_text:
+            return jsonify({"success": False, "error": "Prompt text cannot be empty"}), 400
+
+        owner_id = _owner_id_from_token(token)
+        prompts = _load_prompts(owner_id)
+
+        # Remove the prompt
+        initial_count = len(prompts)
+        prompts = [p for p in prompts if not (isinstance(p, dict) and p.get('text') == prompt_text)]
+
+        if len(prompts) == initial_count:
+            return jsonify({"success": False, "error": "Prompt not found"}), 404
+
+        _save_prompts(owner_id, prompts)
+
+        return jsonify({"success": True})
+    except Exception as e:
+        logger.exception("Error deleting prompt")
+        return jsonify({"success": False, "error": f"Error deleting prompt: {str(e)}"}), 500
 
 
 def estimate_price_api(request):

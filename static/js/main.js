@@ -1,5 +1,6 @@
 // Prompt history management
 let promptHistory = JSON.parse(localStorage.getItem("promptHistory") || "[]");
+let usingServerPrompts = false;
 
 // Track current image prompt for downloads
 let currentImagePrompt = "";
@@ -358,7 +359,10 @@ document.addEventListener("DOMContentLoaded", () => {
     fetchBalance();
   }, 100);
 
-  updateHistoryDisplay();
+  // Load prompts from server if API key is available
+  loadServerPrompts().finally(() => {
+    updateHistoryDisplay();
+  });
   checkAndUpdateApiKeyStatus();
 
   // Set up warning button to open settings
@@ -601,25 +605,118 @@ async function fetchModels() {
 }
 
 /**
+ * Loads prompts from server for the current user (API key holder)
+ */
+async function loadServerPrompts() {
+  try {
+    const apiKey = getUserApiKey();
+    if (!apiKey) {
+      usingServerPrompts = false;
+      return;
+    }
+
+    const res = await fetch("/api/prompts", {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+      },
+    });
+    const data = await res.json();
+    if (data.success && Array.isArray(data.prompts)) {
+      // Extract just the text from prompt objects
+      promptHistory = data.prompts.map((p) => p.text);
+      usingServerPrompts = true;
+      updateHistoryDisplay();
+    }
+  } catch (e) {
+    console.debug("Failed to load server prompts, falling back to localStorage");
+  }
+}
+
+/**
  * Adds a prompt to the history. If it already exists, moves it to the top.
+ * Saves to server if API key is available, otherwise uses localStorage.
  * @param {string} prompt - The prompt to add to history
  */
 function addToHistory(prompt) {
-  // Check if prompt already exists and remove it
-  const index = promptHistory.indexOf(prompt);
-  if (index !== -1) {
-    promptHistory.splice(index, 1);
+  if (!prompt || !prompt.trim()) return;
+
+  const apiKey = getUserApiKey();
+
+  if (apiKey) {
+    // Use server-side storage
+    savePromptToServer(prompt);
+  } else {
+    // Fallback to localStorage
+    const index = promptHistory.indexOf(prompt);
+    if (index !== -1) {
+      promptHistory.splice(index, 1);
+    }
+    promptHistory.unshift(prompt);
+    promptHistory = promptHistory.slice(0, 50);
+    localStorage.setItem("promptHistory", JSON.stringify(promptHistory));
+    updateHistoryDisplay();
   }
+}
 
-  // Add to the beginning of array
-  promptHistory.unshift(prompt);
+/**
+ * Saves a prompt to the server
+ * @param {string} prompt - The prompt to save
+ */
+async function savePromptToServer(prompt) {
+  try {
+    const apiKey = getUserApiKey();
+    if (!apiKey) return;
 
-  // Keep only last 50 items
-  promptHistory = promptHistory.slice(0, 50);
+    const res = await fetch("/api/prompts", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({ prompt: prompt.trim() }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      // Reload prompts from server
+      await loadServerPrompts();
+    }
+  } catch (e) {
+    console.error("Error saving prompt to server:", e);
+  }
+}
 
-  // Save to localStorage and update display
-  localStorage.setItem("promptHistory", JSON.stringify(promptHistory));
-  updateHistoryDisplay();
+/**
+ * Deletes a prompt from the server
+ * @param {string} prompt - The prompt to delete
+ */
+async function deletePromptFromServer(prompt) {
+  try {
+    const apiKey = getUserApiKey();
+    if (!apiKey) {
+      // Delete from localStorage if no API key
+      promptHistory = promptHistory.filter((p) => p !== prompt);
+      localStorage.setItem("promptHistory", JSON.stringify(promptHistory));
+      updateHistoryDisplay();
+      return;
+    }
+
+    const res = await fetch("/api/prompts/delete", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({ prompt: prompt.trim() }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      // Reload prompts from server
+      await loadServerPrompts();
+    }
+  } catch (e) {
+    console.error("Error deleting prompt from server:", e);
+  }
 }
 
 /**
@@ -641,12 +738,20 @@ function updateHistoryDisplay() {
         .replace(/✨/g, "\\u2728"); // Escape sparkle emoji
 
       return `
-            <button type="button" class="text-sm p-2 w-full text-left hover:bg-blue-100 focus:bg-gray-100 rounded mb-1 ${
+            <div class="flex items-center gap-2 p-2 mb-1 rounded ${
               index % 2 === 1 ? "bg-gray-100" : ""
-            }" 
-                onclick="useHistoryPrompt(event, '${escapedPrompt}')">
-                ${prompt}
-            </button>
+            } hover:bg-blue-100 group">
+              <button type="button" class="text-sm flex-1 text-left focus:bg-gray-100 rounded"
+                  onclick="useHistoryPrompt(event, '${escapedPrompt}')">
+                  ${prompt}
+              </button>
+              <button type="button" class="text-xs px-2 py-1 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                  onclick="deletePromptFromServer('${escapedPrompt}')"
+                  title="Delete prompt"
+                  aria-label="Delete prompt">
+                  ✕
+              </button>
+            </div>
         `;
     })
     .join("");

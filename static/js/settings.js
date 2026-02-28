@@ -100,6 +100,10 @@ document.addEventListener("DOMContentLoaded", () => {
         if (typeof checkAndUpdateApiKeyStatus === "function") {
           checkAndUpdateApiKeyStatus();
         }
+        // Reload prompt history from server with new API key
+        if (typeof loadServerPrompts === "function") {
+          loadServerPrompts();
+        }
       } catch (err) {
         console.error("Failed to save API key", err);
         showStatus("Failed to save API key — unexpected error.", "error");

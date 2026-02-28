@@ -15,6 +15,9 @@ from generators import (
     star_media_api,
     list_starred_api,
     unstar_media_api,
+    save_prompt_api,
+    list_prompts_api,
+    delete_prompt_api,
 )
 import os
 
@@ -134,6 +137,21 @@ def api_list_starred():
 @app.route('/api/unstar', methods=['POST'])
 def api_unstar():
     return unstar_media_api(request)
+
+
+@app.route('/api/prompts', methods=['POST'])
+def api_save_prompt():
+    return save_prompt_api(request)
+
+
+@app.route('/api/prompts', methods=['GET'])
+def api_list_prompts():
+    return list_prompts_api(request)
+
+
+@app.route('/api/prompts/delete', methods=['POST'])
+def api_delete_prompt():
+    return delete_prompt_api(request)
 
 
 
