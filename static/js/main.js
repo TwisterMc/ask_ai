@@ -629,7 +629,9 @@ async function loadServerPrompts() {
       updateHistoryDisplay();
     }
   } catch (e) {
-    console.debug("Failed to load server prompts, falling back to localStorage");
+    console.debug(
+      "Failed to load server prompts, falling back to localStorage",
+    );
   }
 }
 
