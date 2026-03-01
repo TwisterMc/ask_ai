@@ -453,10 +453,8 @@ def get_chat_models_api(request_obj=None):
         cached = _MODELS_CACHE.get('chat_models')
         if cached and (now - cached[0]) < _MODELS_CACHE_TTL:
             cached_models = cached[1]
-            if isinstance(cached_models, list) and cached_models:
-                first = cached_models[0]
-                if isinstance(first, dict) and 'id' in first:
-                    return jsonify({"success": True, "models": cached_models})
+            if isinstance(cached_models, list):
+                return jsonify({"success": True, "models": cached_models})
 
         models_url = API_CONFIG.get('CHAT_MODELS_API', 'https://gen.pollinations.ai/v1/models')
         text_models_url = API_CONFIG.get('TEXT_MODELS_API', f"{API_CONFIG['TEXT_API']}models")
@@ -491,6 +489,26 @@ def get_chat_models_api(request_obj=None):
                 return '$$$'
             return '$$$$'
 
+        def _normalize_text_model(item):
+            if not isinstance(item, dict):
+                return None
+            model_id = item.get('name') or item.get('id') or ''
+            if not model_id:
+                return None
+            pricing = item.get('pricing') or item.get('price')
+            aliases = item.get('aliases', []) or []
+            paid_only = item.get('paid_only')
+            return {
+                "id": model_id,
+                "name": model_id,
+                "pricing": pricing,
+                "paid_only": bool(paid_only) if isinstance(paid_only, bool) else False,
+                "cost": _cost_indicator_from_pricing(pricing),
+                "aliases": aliases,
+            }
+
+        text_models_normalized = []
+
         pricing_map = {}
         text_model_ids = []
         try:
@@ -501,6 +519,9 @@ def get_chat_models_api(request_obj=None):
                     for item in pricing_items:
                         if not isinstance(item, dict):
                             continue
+                        normalized = _normalize_text_model(item)
+                        if normalized:
+                            text_models_normalized.append(normalized)
                         name = item.get('name') or item.get('id') or ''
                         pricing = item.get('pricing') or item.get('price')
                         if name:
@@ -516,6 +537,10 @@ def get_chat_models_api(request_obj=None):
 
         r = requests.get(models_url, headers=headers, timeout=10)
         if r.status_code == 200:
+            if text_models_normalized:
+                _MODELS_CACHE['chat_models'] = (now, text_models_normalized)
+                return jsonify({"success": True, "models": text_models_normalized})
+
             payload = r.json()
             models = []
             if isinstance(payload, dict) and isinstance(payload.get('data'), list):
@@ -530,14 +555,32 @@ def get_chat_models_api(request_obj=None):
                 for model_id in models:
                     pricing = pricing_map.get(model_id)
                     cost_indicator = _cost_indicator_from_pricing(pricing)
-                    models_out.append({"id": model_id, "cost": cost_indicator})
+                    models_out.append({
+                        "id": model_id,
+                        "name": model_id,
+                        "pricing": pricing,
+                        "paid_only": False,
+                        "cost": cost_indicator,
+                    })
             if not models_out and text_model_ids:
                 for name in sorted(set(text_model_ids)):
                     cost_indicator = _cost_indicator_from_pricing(pricing_map.get(name))
-                    models_out.append({"id": name, "cost": cost_indicator})
+                    models_out.append({
+                        "id": name,
+                        "name": name,
+                        "pricing": pricing_map.get(name),
+                        "paid_only": False,
+                        "cost": cost_indicator,
+                    })
             if not models_out:
                 for model_id in models:
-                    models_out.append({"id": model_id, "cost": None})
+                    models_out.append({
+                        "id": model_id,
+                        "name": model_id,
+                        "pricing": None,
+                        "paid_only": False,
+                        "cost": None,
+                    })
             _MODELS_CACHE['chat_models'] = (now, models_out)
             return jsonify({"success": True, "models": models_out})
         elif r.status_code == 403:
