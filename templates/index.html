@@ -79,11 +79,22 @@
                 &times;
               </button>
             </div>
-            <label
-              for="prompt"
-              class="block text-gray-700 text-sm font-bold mb-2"
-              >Enter your prompt:</label
-            >
+            <div class="flex items-center justify-between mb-2">
+              <label
+                for="prompt"
+                class="block text-gray-700 text-sm font-bold"
+                >Enter your prompt:</label
+              >
+              <button
+                type="button"
+                id="clearPromptButton"
+                onclick="clearPromptInput()"
+                class="text-sm text-red-600 underline hover:text-red-700 focus:ring-2 focus:ring-red-500 focus:ring-offset-2 rounded px-1"
+                aria-label="Clear prompt input"
+              >
+                Clear
+              </button>
+            </div>
             <textarea
               id="prompt"
               class="w-full px-3 py-2 border rounded-lg mb-2 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:outline-none disabled:opacity-50 disabled:bg-gray-50"

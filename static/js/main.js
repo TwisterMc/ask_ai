@@ -1610,3 +1610,10 @@ function scrollToPrompt() {
     promptEl.scrollIntoView({ behavior: "smooth", block: "center" });
   }
 }
+
+function clearPromptInput() {
+  const promptEl = document.getElementById("prompt");
+  if (!promptEl) return;
+  promptEl.value = "";
+  promptEl.focus();
+}
